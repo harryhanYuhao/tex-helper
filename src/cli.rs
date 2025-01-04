@@ -1,3 +1,4 @@
+mod compile;
 mod init;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -20,7 +21,7 @@ enum Commands {
         init_args: DocMode,
     },
     Compile {
-        targets: Vec<PathBuf>,
+        targets: Vec<String>,
     },
 }
 
@@ -43,30 +44,30 @@ impl std::fmt::Display for DocMode {
     }
 }
 
-pub fn cli() -> Result <(), Box<dyn std::error::Error>> {
+pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Commands::Init { init_args } => {
-            match init_args {
-                DocMode::Report => {
-                    init::init_report()?;
-                }
-                DocMode::Book => {
-                    init::init_book()?;
-                }
-                DocMode::Article => {
-                    init::init_article()?;
-                }
-                DocMode::Letter => {
-                    init::init_letter()?;
-                }
+        Commands::Init { init_args } => match init_args {
+            DocMode::Report => {
+                init::init_report()?;
             }
-        }
+            DocMode::Book => {
+                init::init_book()?;
+            }
+            DocMode::Article => {
+                init::init_article()?;
+            }
+            DocMode::Letter => {
+                init::init_letter()?;
+            }
+        },
         Commands::Compile { targets } => {
-            println!("Compile targets are {:?}", targets);
+            for i in targets {
+                compile::compile(i)?;
+            }
         }
     }
     Ok(())

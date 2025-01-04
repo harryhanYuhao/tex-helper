@@ -31,4 +31,8 @@ impl Config {
     pub fn get_file_path(&self) -> String {
         self.file_path.clone()
     }
+
+    pub fn get_latex_binary(&self) -> Option<String> {
+        self.latex_binary.clone()
+    }
 }

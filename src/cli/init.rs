@@ -3,6 +3,7 @@ use crate::CONFIG;
 use lazy_static::lazy_static;
 use std::error::Error;
 use std::fs::{create_dir_all, File};
+use std::path::Path;
 use std::io::Write;
 use colored::Colorize;
 
@@ -79,11 +80,13 @@ lazy_static! {
 \newcommand{\im}[1]{\text{im}{\ #1}}
 \newcommand{\se}[2]{\text{send}_{#1}({#2})}
 
-\title{}
-\author{} 
+\title{Ars Amatoria}
+\author{Publius Ovidius Naso} 
 \date{\today}
 
 \begin{document}
+Siquis in hoc artem populo non novit amandi, \\
+     Hoc legat et lecto carmine doctus amet.
 % \maketitle
 % \tableofcontents
 
@@ -97,6 +100,10 @@ fn init_template(header: &String, preamble: &String, hint: &str) -> Result<(), B
     let file_path = config.get_file_path() + &config.get_main_file_name();
 
     create_dir_all(&config.get_file_path())?;
+    if Path::new(&file_path).exists() {
+        return Err(format!("{} already exists", file_path).into());
+    }
+
     // Create or open the file
     let mut file = File::create(&file_path)?;
 

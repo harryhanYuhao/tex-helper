@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use colored::Colorize;
 extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
@@ -27,5 +28,10 @@ fn init() {
 
 fn main() {
     init();
-    cli::cli();
+    match cli::cli() {
+        Ok(_) => {}
+        Err(e) => {
+            error!("{}: {}", "Error".red(), format!("{}", e));
+        }
+    }
 }
