@@ -13,8 +13,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Initialised the current directory for latex. Require args: report, book, article, or
-    /// letter
+    /// Creating a new latex package at <PACKAG_NAME>
     Init {
         package_name: String,
         #[arg(

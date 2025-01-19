@@ -124,6 +124,18 @@ Curribus Automedon lentisque erat aptus habenis\\
 Me Venus artificem tenero praefecit Amori;\\
      Tiphys et Automedon dicar Amoris ego.\\
 
+Should anyone here not know the art of love,\\
+read this, and learn by reading how to love.
+
+By art the boat’s set gliding, with oar and sail,\\
+by art the chariot’s swift: love’s ruled by art.
+
+Automedon was skilled with Achilles’s chariot reins,\\
+Tiphys in Thessaly was steersman of the Argo,
+
+Venus appointed me as guide to gentle Love:\\
+I’ll be known as Love’s Tiphys, and Automedon.
+
 % \printbibliography
 \end{document}"##
     );
