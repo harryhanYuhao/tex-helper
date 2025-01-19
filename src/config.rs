@@ -3,6 +3,7 @@ use crate::utils;
 #[derive(Debug)]
 pub struct Config {
     main_file_name: String,
+    // TODO: how to handle config properly?
     file_path: String,
     latex_binary: Option<String>,
 }

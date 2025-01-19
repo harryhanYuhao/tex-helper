@@ -19,3 +19,8 @@ pub fn which_latex_binary() -> Option<String> {
 
     None
 }
+
+pub(crate) fn legal_characters_for_dir_name(instr: &str) -> Vec<char> {
+    let illegal_c = ['/', '\\'];
+    instr.chars().filter(|&c| illegal_c.contains(&c)).collect()
+}

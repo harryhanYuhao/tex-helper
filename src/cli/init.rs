@@ -1,17 +1,41 @@
 use crate::CONFIG;
 
+use crate::utils::legal_characters_for_dir_name;
+use colored::Colorize;
 use lazy_static::lazy_static;
 use std::error::Error;
 use std::fs::{create_dir_all, File};
-use std::path::Path;
 use std::io::Write;
-use colored::Colorize;
+use std::path::Path;
 
 lazy_static! {
     static ref article_header: String = String::from("\\documentclass{article}");
     static ref book_header: String = String::from("\\documentclass{book}");
     static ref report_header: String = String::from("\\documentclass{report}");
     static ref letter_header: String = String::from("\\documentclass{letter}");
+    static ref git_ignore_template: String = String::from(
+        r##"*.pdf
+*.txt
+*.ipynb
+*.aux
+*..gz
+*.latexmk
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.blg
+*.log
+*.out
+*.toc
+*.nav
+*.snm
+*.vrb
+*.synctex.gz
+*.bcf
+*.xml
+*.dvi
+"##
+    );
     static ref default_single_file_preamble: String = String::from(
         r##"
 
@@ -80,29 +104,64 @@ lazy_static! {
 \newcommand{\im}[1]{\text{im}{\ #1}}
 \newcommand{\se}[2]{\text{send}_{#1}({#2})}
 
-\title{Ars Amatoria}
+\title{Ars Amatoriae}
 \author{Publius Ovidius Naso} 
 \date{\today}
 
 \begin{document}
-Siquis in hoc artem populo non novit amandi, \\
-     Hoc legat et lecto carmine doctus amet.
-% \maketitle
+\maketitle
 % \tableofcontents
+
+Siquis in hoc artem populo non novit amandi,\\
+     Hoc legat et lecto carmine doctus amet.
+
+Arte citae veloque rates remoque moventur,\\
+     Arte leves currus: arte regendus amor.
+
+Curribus Automedon lentisque erat aptus habenis\\
+     Tiphys in Haemonia puppe magister erat:
+
+Me Venus artificem tenero praefecit Amori;\\
+     Tiphys et Automedon dicar Amoris ego.\\
 
 % \printbibliography
 \end{document}"##
     );
 }
 
-fn init_template(header: &String, preamble: &String, hint: &str) -> Result<(), Box<dyn Error>> {
-    let config = CONFIG.lock().unwrap();
-    let file_path = config.get_file_path() + &config.get_main_file_name();
+fn create_git_ignore(directory: &str) -> Result<(), Box<dyn Error>> {
+    let git_ignore_path = directory.to_string() + "/" + ".gitignore";
+    let mut file = File::create(&git_ignore_path)?;
+    file.write_all((*git_ignore_template).as_bytes())?;
+    Ok(())
+}
 
-    create_dir_all(&config.get_file_path())?;
-    if Path::new(&file_path).exists() {
-        return Err(format!("{} already exists", file_path).into());
+fn init_template(
+    package_name: &str,
+    header: &String,
+    preamble: &String,
+    hint: &str,
+) -> Result<(), Box<dyn Error>> {
+    let config = CONFIG.lock().unwrap();
+    // Error handling
+    if legal_characters_for_dir_name(package_name).len() != 0 {
+        return Err(format!(
+            "{} is an illegal name for directory as it contains {:?}",
+            package_name,
+            legal_characters_for_dir_name(package_name)
+        )
+        .into());
     }
+
+    if Path::new(&package_name).exists() {
+        return Err(format!("{} already exists", package_name).into());
+    }
+
+    let main_file_name = config.get_main_file_name();
+    let file_path = format!("{}/{}", package_name, main_file_name);
+
+    create_dir_all(package_name)?;
+    create_git_ignore(package_name)?;
 
     // Create or open the file
     let mut file = File::create(&file_path)?;
@@ -111,23 +170,41 @@ fn init_template(header: &String, preamble: &String, hint: &str) -> Result<(), B
     // Write the string to the file
     file.write_all(content.as_bytes())?;
 
-    println!("Latex {} created at {}", hint, format!("{}", file_path).blue());
+    println!(
+        "Latex {} project created: {}", hint,
+        format!("{}/", package_name).blue()
+    );
 
     Ok(())
 }
 
-pub(super) fn init_article() -> Result<(), Box<dyn Error>> {
-    init_template(&article_header, &default_single_file_preamble, "article")
+pub(super) fn init_article(name: &str) -> Result<(), Box<dyn Error>> {
+    init_template(
+        name,
+        &article_header,
+        &default_single_file_preamble,
+        "article",
+    )
 }
 
-pub(super) fn init_book() -> Result<(), Box<dyn Error>> {
-    init_template(&book_header, &default_single_file_preamble, "book")
+pub(super) fn init_book(name: &str) -> Result<(), Box<dyn Error>> {
+    init_template(name, &book_header, &default_single_file_preamble, "book")
 }
 
-pub(super) fn init_report() -> Result<(), Box<dyn Error>> {
-    init_template(&report_header, &default_single_file_preamble, "report")
+pub(super) fn init_report(name: &str) -> Result<(), Box<dyn Error>> {
+    init_template(
+        name,
+        &report_header,
+        &default_single_file_preamble,
+        "report",
+    )
 }
 
-pub(super) fn init_letter() -> Result<(), Box<dyn Error>> {
-    init_template(&letter_header, &default_single_file_preamble, "letter")
+pub(super) fn init_letter(name: &str) -> Result<(), Box<dyn Error>> {
+    init_template(
+        name,
+        &letter_header,
+        &default_single_file_preamble,
+        "letter",
+    )
 }
