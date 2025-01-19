@@ -3,7 +3,7 @@ authors = ["Yuhao Han"]
 name = "tex-helper"
 version = "0.1.0"
 edition = "2021"
-description = "A tex helper"
+description = "tex-helper handles various boilerplates and other repetitive tasks for writing tex documents."
 licencse= "GPL-2.0-or-later"
 keywords = ["latex", "tex"]
 

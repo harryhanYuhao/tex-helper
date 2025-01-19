@@ -20,6 +20,7 @@ enum Commands {
         #[arg(default_value_t = DocMode::Article)]
         init_args: DocMode,
     },
+    /// Compile the latex files 
     Compile {
         targets: Vec<String>,
     },
