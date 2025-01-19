@@ -1,7 +1,7 @@
 # Tex-helper
 
 One is often required to perform many boilerplates tasks when writing latex, such as creating a long list of .gitignore, prepending a long preamble, deleteing all the auxillary files generated when compiling the latex, etc. 
-This tool help you manage all of these.
+This tool helps you manage these.
 
 ## Usage
 
