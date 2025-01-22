@@ -9,11 +9,11 @@ use std::io::Write;
 use std::path::Path;
 
 lazy_static! {
-    static ref article_header: String = String::from("\\documentclass{article}");
-    static ref book_header: String = String::from("\\documentclass{book}");
-    static ref report_header: String = String::from("\\documentclass{report}");
-    static ref letter_header: String = String::from("\\documentclass{letter}");
-    static ref git_ignore_template: String = String::from(
+    static ref ARTICLE_HEADER: String = String::from("\\documentclass{article}");
+    static ref BOOK_HEADER: String = String::from("\\documentclass{book}");
+    static ref REPORT_HEADER: String = String::from("\\documentclass{report}");
+    static ref LETTER_HEADER: String = String::from("\\documentclass{letter}");
+    static ref GIT_IGNORE_TEMPLATE: String = String::from(
         r##"*.pdf
 *.txt
 *.ipynb
@@ -36,14 +36,49 @@ lazy_static! {
 *.dvi
 "##
     );
-    static ref default_single_file_preamble: String = String::from(
+    static ref REFERENCE_BIB_TEMPLATE: String = String::from(
+        r##"% @inproceedings{lesk:1977,
+%   title={Computer Typesetting of Technical Journals on {UNIX}},
+%   author={Michael Lesk and Brian Kernighan},
+%   booktitle={Proceedings of American Federation of
+%              Information Processing Societies: 1977
+%              National Computer Conference},
+%   pages={879--888},
+%   year={1977},
+%   address={Dallas, Texas}
+% }
+% @article{knuth:1984,
+%   title={Literate Programming}.
+%   author={Donald E. Knuth},
+%   journal={The Computer Journal},
+%   volume={27},
+%   number={2},
+%   pages={97--111},
+%   year={1984},
+%   publisher={Oxford University Press}
+% }
+
+% All possible entries are 
+% article, book, booklet, conference, inbook, incollection, inproceedings, manual, mastersthesis, misc, phdthesis, proceedings, techreport, unpublished
+% Possible fields are 
+% address, annote, author, booktitle, chapter, crossref, edition, editor, howpublished, institution, journal, key, month, note, number, organization, pages, publisher, school, series, title, type, volume, year, url, doi, isbn, issn
+
+
+@misc {Ovid,
+	author = {Ovid},
+	title = {Metamorphoses  Liber Primus},
+	url = {https://www.thelatinlibrary.com/ovid/ovid.artis1.shtml}
+}
+        "##
+    );
+    static ref SINGLE_FILE_PREAMBLE_TEMPLATE: String = String::from(
         r##"
 
 \usepackage[tmargin=2.5cm,rmargin=3cm,lmargin=3cm,bmargin=3cm]{geometry} 
 % Top margin, right margin, left margin, bottom margin, footnote skip
 \usepackage[utf8]{inputenc}
 \usepackage{biblatex}
-% \addbibresource{./reference/reference.bib}
+\addbibresource{./references.bib}
 % linktocpage shall be added to snippets.
 \usepackage{hyperref,theoremref}
 \hypersetup{
@@ -122,7 +157,7 @@ Curribus Automedon lentisque erat aptus habenis\\
      Tiphys in Haemonia puppe magister erat:
 
 Me Venus artificem tenero praefecit Amori;\\
-     Tiphys et Automedon dicar Amoris ego.\\
+     Tiphys et Automedon dicar Amoris ego.\cite{Ovid}\\
 
 Should anyone here not know the art of love,\\
 read this, and learn by reading how to love.
@@ -136,15 +171,40 @@ Tiphys in Thessaly was steersman of the Argo,
 Venus appointed me as guide to gentle Love:\\
 I’ll be known as Love’s Tiphys, and Automedon.
 
-% \printbibliography
+\printbibliography
 \end{document}"##
     );
 }
 
-fn create_git_ignore(directory: &str) -> Result<(), Box<dyn Error>> {
-    let git_ignore_path = directory.to_string() + "/" + ".gitignore";
-    let mut file = File::create(&git_ignore_path)?;
-    file.write_all((*git_ignore_template).as_bytes())?;
+// auxiliary function: shall only be called wihthin the crate with simple logics
+// TODO: Add support for windows
+fn file_path_string(directory: &str, filename: &str) -> String {
+    if directory.len() == 0 {
+        panic!("file_path_string() called with directory string empty!");
+    }
+    if filename.len() == 0 {
+        panic!("file_path_string() called with filename string empty!");
+    }
+    let last_char = directory.chars().last().unwrap();
+    if last_char == '/' {
+        return format!("{}{}", directory, filename);
+    }
+    format!("{}/{}", directory, filename)
+}
+
+// This function only creates files if it does not exists,
+// return error if the file does exists
+fn create_new_files_if_not_exist(filepath: &str, content: &str) -> Result<(), Box<dyn Error>> {
+    if Path::new(filepath).exists() {
+        return Err(format!(
+            "{} already exists when calling create_new_files_if_not_exist()!",
+            filepath
+        )
+        .into());
+    }
+
+    let mut file = File::create(filepath)?;
+    file.write_all(content.as_bytes())?;
     Ok(())
 }
 
@@ -165,6 +225,7 @@ fn init_template(
         .into());
     }
 
+    // NOTE: package_name is also the directory name
     if Path::new(&package_name).exists() {
         return Err(format!("{} already exists", package_name).into());
     }
@@ -173,7 +234,18 @@ fn init_template(
     let file_path = format!("{}/{}", package_name, main_file_name);
 
     create_dir_all(package_name)?;
-    create_git_ignore(package_name)?;
+
+    // create gitignore
+    create_new_files_if_not_exist(
+        &file_path_string(package_name, ".gitignore"),
+        &(*GIT_IGNORE_TEMPLATE),
+    )?;
+
+    // create references.bib
+    create_new_files_if_not_exist(
+        &file_path_string(package_name, "references.bib"),
+        &(*REFERENCE_BIB_TEMPLATE),
+    )?;
 
     // Create or open the file
     let mut file = File::create(&file_path)?;
@@ -183,7 +255,8 @@ fn init_template(
     file.write_all(content.as_bytes())?;
 
     println!(
-        "Latex {} project created: {}", hint,
+        "Latex {} project created: {}",
+        hint,
         format!("{}/", package_name).blue()
     );
 
@@ -193,21 +266,21 @@ fn init_template(
 pub(super) fn init_article(name: &str) -> Result<(), Box<dyn Error>> {
     init_template(
         name,
-        &article_header,
-        &default_single_file_preamble,
+        &ARTICLE_HEADER,
+        &SINGLE_FILE_PREAMBLE_TEMPLATE,
         "article",
     )
 }
 
 pub(super) fn init_book(name: &str) -> Result<(), Box<dyn Error>> {
-    init_template(name, &book_header, &default_single_file_preamble, "book")
+    init_template(name, &BOOK_HEADER, &SINGLE_FILE_PREAMBLE_TEMPLATE, "book")
 }
 
 pub(super) fn init_report(name: &str) -> Result<(), Box<dyn Error>> {
     init_template(
         name,
-        &report_header,
-        &default_single_file_preamble,
+        &REPORT_HEADER,
+        &SINGLE_FILE_PREAMBLE_TEMPLATE,
         "report",
     )
 }
@@ -215,8 +288,8 @@ pub(super) fn init_report(name: &str) -> Result<(), Box<dyn Error>> {
 pub(super) fn init_letter(name: &str) -> Result<(), Box<dyn Error>> {
     init_template(
         name,
-        &letter_header,
-        &default_single_file_preamble,
+        &LETTER_HEADER,
+        &SINGLE_FILE_PREAMBLE_TEMPLATE,
         "letter",
     )
 }
