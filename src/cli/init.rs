@@ -16,9 +16,8 @@ lazy_static! {
     static ref GIT_IGNORE_TEMPLATE: String = String::from(
         r##"*.pdf
 *.txt
-*.ipynb
 *.aux
-*..gz
+*.gz
 *.latexmk
 *.fls
 *.fdb_latexmk
@@ -34,6 +33,7 @@ lazy_static! {
 *.bcf
 *.xml
 *.dvi
+*.bbl
 "##
     );
     static ref REFERENCE_BIB_TEMPLATE: String = String::from(
@@ -102,27 +102,27 @@ lazy_static! {
 \usepackage{hyperref}
 \usepackage{import}
 
-
-\newtheorem{theorem}{Theorema}[section]
+\newtheorem{theorem}{Theorema}[chapter]
 \newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{corollary}{Corollarium}[section]
-\newtheorem{proposition}{Propositio}[theorem]
+\newtheorem{corollary}[theorem]{Corollarium}
+\newtheorem{proposition}[theorem]{Propositio}
 \theoremstyle{definition}
-\newtheorem{definition}{Definitio}[section]
+\newtheorem{definition}[theorem]{Definitio}
 
 \theoremstyle{definition}
-\newtheorem{axiom}{Axioma}[section]
+\newtheorem{axiom}[theorem]{Axioma}
+\newtheorem{observation}[theorem]{Observation}
 
 \theoremstyle{remark}
-\newtheorem{remark}{Observatio}[section]
-\newtheorem{hypothesis}{Coniectura}[section]
-\newtheorem{example}{Exampli Gratia}[section]
+\newtheorem{remark}[theorem]{Observatio}
+\newtheorem{hypothesis}[theorem]{Coniectura}
+\newtheorem{example}[theorem]{Exampli Gratia}
 
 % Proof Environments
 \newcommand{\thm}[2]{\begin{theorem}[#1]{}#2\end{theorem}}
 
 %TODO mayby proof environment shall have more margin
-\renewenvironment{proof}{\vspace{0.4cm}\noindent\small{\emph{Demonstratio.}}}{\qed\vspace{0.4cm}}
+%\renewenvironment{proof}{\vspace{0.4cm}\noindent\small{\emph{Demonstratio.}}}{\qed\vspace{0.4cm}}
 % \renewenvironment{proof}{{\bfseries\emph{Demonstratio.}}}{\qed}
 \renewcommand\qedsymbol{Q.E.D.}
 % \renewcommand{\chaptername}{Caput}
@@ -178,7 +178,7 @@ I’ll be known as Love’s Tiphys, and Automedon.
 
 // auxiliary function: shall only be called wihthin the crate with simple logics
 // TODO: Add support for windows
-fn file_path_string(directory: &str, filename: &str) -> String {
+fn file_path_from_dir_and_filename(directory: &str, filename: &str) -> String {
     if directory.len() == 0 {
         panic!("file_path_string() called with directory string empty!");
     }
@@ -194,7 +194,10 @@ fn file_path_string(directory: &str, filename: &str) -> String {
 
 // This function only creates files if it does not exists,
 // return error if the file does exists
-fn create_new_files_if_not_exist(filepath: &str, content: &str) -> Result<(), Box<dyn Error>> {
+fn create_new_files_if_not_exist_error_otherwise(
+    filepath: &str,
+    content: &str,
+) -> Result<(), Box<dyn Error>> {
     if Path::new(filepath).exists() {
         return Err(format!(
             "{} already exists when calling create_new_files_if_not_exist()!",
@@ -236,14 +239,14 @@ fn init_template(
     create_dir_all(package_name)?;
 
     // create gitignore
-    create_new_files_if_not_exist(
-        &file_path_string(package_name, ".gitignore"),
+    create_new_files_if_not_exist_error_otherwise(
+        &file_path_from_dir_and_filename(package_name, ".gitignore"),
         &(*GIT_IGNORE_TEMPLATE),
     )?;
 
     // create references.bib
-    create_new_files_if_not_exist(
-        &file_path_string(package_name, "references.bib"),
+    create_new_files_if_not_exist_error_otherwise(
+        &file_path_from_dir_and_filename(package_name, "references.bib"),
         &(*REFERENCE_BIB_TEMPLATE),
     )?;
 
