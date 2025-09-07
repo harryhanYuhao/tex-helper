@@ -1,6 +1,6 @@
-use lazy_static::lazy_static;
 use colored::Colorize;
-extern crate pretty_env_logger;
+use lazy_static::lazy_static;
+extern crate simplelog;
 #[macro_use]
 extern crate log;
 
@@ -17,9 +17,20 @@ lazy_static! {
 }
 
 fn init() {
-    pretty_env_logger::init();
+    use simplelog::{
+        ColorChoice, CombinedLogger, Config as LogConfig, LevelFilter, TermLogger, TerminalMode,
+    };
+
+    CombinedLogger::init(vec![TermLogger::new(
+        LevelFilter::Info,
+        LogConfig::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )])
+    .unwrap();
+
     let mut config = CONFIG.lock().unwrap();
-    // init the config with some system settings 
+    // init the config with some system settings
     // i.e., finding latex binary, etc
     // the configuration will be further updated by the cli
     // TODO: config init is likely redundant, remove it.
@@ -31,7 +42,7 @@ fn main() {
     match cli::cli() {
         Ok(_) => {}
         Err(e) => {
-            error!("{}: {}", "Error".red(), format!("{}", e));
+            error!("{}", e);
         }
     }
 }
