@@ -1,6 +1,6 @@
 # Tex-helper
 
-One is often required to perform many boilerplates tasks when writing latex, such as creating a long list of .gitignore, prepending a long preamble, deleteing all the auxillary files generated when compiling the latex, etc. 
+Many chores are neccessary when writing latex such as creating a long list of `.gitignore`, prepending a long preamble, deleteing all the auxillary files generated when compiling the latex, etc. 
 This tool helps you manage these.
 
 ## Usage

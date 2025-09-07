@@ -1,3 +1,5 @@
+// This file contains the `init` command logic 
+// this file is not the initialisation of the crate
 use crate::CONFIG;
 
 use crate::utils::legal_characters_for_dir_name;
@@ -213,8 +215,8 @@ fn create_new_files_if_not_exist_error_otherwise(
 
 fn init_template(
     package_name: &str,
-    header: &String,
-    preamble: &String,
+    header: &str,
+    preamble: &str,
     hint: &str,
 ) -> Result<(), Box<dyn Error>> {
     let config = CONFIG.lock().unwrap();
@@ -253,7 +255,7 @@ fn init_template(
     // Create or open the file
     let mut file = File::create(&file_path)?;
 
-    let content: String = header.clone() + &(*preamble);
+    let content: String = header.to_owned() + &(*preamble);
     // Write the string to the file
     file.write_all(content.as_bytes())?;
 

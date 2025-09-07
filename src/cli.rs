@@ -4,7 +4,7 @@ mod init;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None)]  // read from cargo.toml
 #[command(propagate_version = true)]
 struct Cli {
     #[command(subcommand)]
