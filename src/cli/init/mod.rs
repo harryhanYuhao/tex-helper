@@ -7,7 +7,6 @@ use crate::CONFIG;
 
 use crate::utils;
 use crate::utils::legal_characters_for_dir_name;
-use colored::Colorize;
 use std::error::Error;
 use std::fs::{self, create_dir_all, File};
 use std::io::Write;
@@ -62,7 +61,7 @@ fn create_gitignore(package_name: &str) -> Result<(), Box<dyn Error>> {
     let file_path = file_path_from_dir_and_filename(package_name, ".gitignore");
     utils::overwrite_to_file(&file_path, &default_assets::default_gitignore())?;
 
-    info!("Created {file_path}");
+    debug!("Created {file_path}");
     Ok(())
 }
 
@@ -70,7 +69,7 @@ fn create_reference_template(package_name: &str) -> Result<(), Box<dyn Error>> {
     let file_path = file_path_from_dir_and_filename(package_name, "references.bib");
     utils::overwrite_to_file(&file_path, &default_assets::default_reference_bib())?;
 
-    info!("Created {file_path}");
+    debug!("Created {file_path}");
     Ok(())
 }
 
@@ -81,7 +80,7 @@ pub(super) fn init_tex_project(package_name: &str, doc_mode: &str) -> Result<(),
 
     let main_content = default_assets::get_single_page_preamble(doc_mode)?;
     utils::overwrite_to_file(&main_file_path, &main_content)?;
-    info!("Created {main_file_path}");
+    debug!("Created {main_file_path}");
 
     Ok(())
 }

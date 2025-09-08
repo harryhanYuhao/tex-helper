@@ -13,7 +13,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Creating a new latex package at <PACKAG_NAME>
+    /// Creating a new latex package with <PACKAG_NAME>
     Init {
         package_name: String,
         #[arg(
@@ -39,9 +39,12 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
             doc_mode: init_args,
             package_name,
         } => {
-            init::init_tex_project(package_name, init_args)?
+            init::init_tex_project(package_name, init_args)?;
+            info!("Initialized latex package {package_name} with document mode {init_args}");
         },
         Commands::Compile { targets } => {
+            // TODO: implement compile
+            error!("Compiling is yet to be implemented.");
             for i in targets {
                 compile::compile(i)?;
             }

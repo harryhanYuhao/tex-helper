@@ -149,7 +149,7 @@ pub(super) fn get_single_page_preamble(doc_mode: &str) -> Result<String, Box<dyn
     if custom_file_path.is_empty() {
         let ret = default_preable(doc_mode);
         if ret.is_empty() {
-            warn!("Document mode {doc_mode} not recognized, using article as default.");
+            info!("Document mode {doc_mode} not recognized, using article as default.");
             return Ok(default_preable("article"));
         }
         return Ok(default_preable(doc_mode));

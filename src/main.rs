@@ -1,4 +1,3 @@
-use colored::Colorize;
 use lazy_static::lazy_static;
 extern crate simplelog;
 #[macro_use]
