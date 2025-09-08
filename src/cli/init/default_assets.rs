@@ -1,10 +1,14 @@
+use crate::utils;
+use std::error::Error;
+use std::fs;
+
 fn article_header() -> String {
     String::from("\\documentclass{article}")
 }
 
 fn report_header() -> String {
     String::from("\\documentclass{report}")
-} 
+}
 fn book_header() -> String {
     String::from("\\documentclass{book}")
 }
@@ -118,34 +122,54 @@ I’ll be known as Love’s Tiphys, and Automedon.
     ) // End of String::from
 }
 
+pub(super) fn default_preable(doc_mode: &str) -> String {
+    match doc_mode {
+        "article" => format!("{}{}", article_header(), preamble(),),
+        "report" => format!("{}{}", report_header(), preamble(),),
+        "book" => format!("{}{}", book_header(), preamble(),),
+        "letter" => format!("{}{}", letter_header(), preamble(),),
+        _ => String::new(),
+    }
+}
+
+fn custom_template_exists(template_name: &str) -> Result<String, Box<dyn Error>> {
+    let fp = format!("{}/{}", utils::get_config_dir()?, template_name);
+    let fp_tex = format!("{}.tex", &fp);
+
+    if fs::exists(&fp_tex)? {
+        return Ok(fp_tex);
+    } else if fs::exists(&fp)? {
+        return Ok(fp);
+    }
+    Ok(String::new())
+}
+
+pub(super) fn get_single_page_preamble(doc_mode: &str) -> Result<String, Box<dyn Error>> {
+    let custom_file_path = custom_template_exists(doc_mode)?;
+    if custom_file_path.is_empty() {
+        let ret = default_preable(doc_mode);
+        if ret.is_empty() {
+            warn!("Document mode {doc_mode} not recognized, using article as default.");
+            return Ok(default_preable("article"));
+        }
+        return Ok(default_preable(doc_mode));
+    } else {
+        info!("Using custom {doc_mode} template at {custom_file_path}");
+        return Ok(fs::read_to_string(custom_file_path)?);
+    }
+}
 
 pub(super) fn default_main_article() -> String {
-    format!(
-        "{}{}",
-        article_header(),
-        preamble(),
-    ) 
+    format!("{}{}", article_header(), preamble(),)
 }
 pub(super) fn default_main_report() -> String {
-    format!(
-        "{}{}",
-        report_header(),
-        preamble(),
-    ) 
+    format!("{}{}", report_header(), preamble(),)
 }
 pub(super) fn default_main_book() -> String {
-    format!(
-        "{}{}",
-        book_header(),
-        preamble(),
-    ) 
+    format!("{}{}", book_header(), preamble(),)
 }
 pub(super) fn default_main_letter() -> String {
-    format!(
-        "{}{}",
-        letter_header(),
-        preamble(),
-    ) 
+    format!("{}{}", letter_header(), preamble(),)
 }
 
 pub(super) fn default_reference_bib() -> String {
