@@ -1,10 +1,10 @@
 mod compile;
 mod init;
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[command(version, about, long_about = None)]  // read from cargo.toml
+#[command(version, about, long_about = None)] // read from cargo.toml
 #[command(propagate_version = true)]
 struct Cli {
     #[command(subcommand)]
@@ -41,7 +41,7 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             init::init_tex_project(package_name, init_args)?;
             info!("Initialized latex package {package_name} with document mode {init_args}");
-        },
+        }
         Commands::Compile { targets } => {
             // TODO: implement compile
             error!("Compiling is yet to be implemented.");

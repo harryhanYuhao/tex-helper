@@ -29,8 +29,8 @@ Tex-helper's cli facilities are created using the powerful `clap` crate.
 Check out the help message for the main command and each subcommand for more details.
 
 ```sh
-tex-helper -h
-tex-helper init -h
+tex-helper -h  # general help
+tex-helper init -h  # help for init subcommand
 ```
 
 ## Todo

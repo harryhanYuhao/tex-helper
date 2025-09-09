@@ -8,8 +8,7 @@ use crate::CONFIG;
 use crate::utils;
 use crate::utils::legal_characters_for_dir_name;
 use std::error::Error;
-use std::fs::{self, create_dir_all, File};
-use std::io::Write;
+use std::fs::create_dir_all;
 use std::path::Path;
 
 // auxiliary function: shall only be called wihthin the crate with simple logics

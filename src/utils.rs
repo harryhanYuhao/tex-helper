@@ -37,7 +37,7 @@ pub(crate) fn overwrite_to_file(path: &str, content: &str) -> Result<(), Box<dyn
     Ok(())
 }
 
-pub(crate) fn get_config_dir() -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn get_config_dir() -> Result<String, Box<dyn Error>> {
     use std::env;
     let home_dir = env::var("HOME")?;
     Ok(format!("{}/.config/tex-helper", home_dir))

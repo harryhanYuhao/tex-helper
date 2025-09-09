@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 mod cli;
 mod config;
 mod utils;
+mod latex_interpreter;
 
 use config::Config;
 

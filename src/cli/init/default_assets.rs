@@ -159,19 +159,6 @@ pub(super) fn get_single_page_preamble(doc_mode: &str) -> Result<String, Box<dyn
     }
 }
 
-pub(super) fn default_main_article() -> String {
-    format!("{}{}", article_header(), preamble(),)
-}
-pub(super) fn default_main_report() -> String {
-    format!("{}{}", report_header(), preamble(),)
-}
-pub(super) fn default_main_book() -> String {
-    format!("{}{}", book_header(), preamble(),)
-}
-pub(super) fn default_main_letter() -> String {
-    format!("{}{}", letter_header(), preamble(),)
-}
-
 pub(super) fn default_reference_bib() -> String {
     String::from(
         r##"% @inproceedings{lesk:1977,
