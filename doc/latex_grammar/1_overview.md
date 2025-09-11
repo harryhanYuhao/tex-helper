@@ -57,11 +57,11 @@ a
         % this is a comment
 b
 ```
+
 is rendered as `a b`, while
 ```
 a % comment 
 
-b
 ```
 is rendered as 
 ```

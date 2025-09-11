@@ -1,16 +1,16 @@
 /// A custom scanner for LaTex
 ///
-/// Scan input a &str and output a Vec of Tokens. 
+/// Scan input a &str and output a Vec of Tokens.
 /// Tokens, for the most parts, are scanned in the obvious way: all speical
-/// characters (including newline and space) have their own token types. 
-/// 
+/// characters (including newline and space) have their own token types.
+///
 /// Here are the description of the implementation
-/// 1, Each token consists of a TokenType and a lexeme. 
+/// 1, Each token consists of a TokenType and a lexeme.
 /// The lexeme is ignored for certain TokenTypes, such as Space, Newline,
 /// 1. Multiple spaces are treated as one space token, except when they are at the beginning of a
 ///     line, in which case they are ignored.
 /// 1. Comments are treated as a single space token, except when they occupies the whole line, in
-///    which case the newline character at the end of the line is also ignored. check 
+///    which case the newline character at the end of the line is also ignored. check
 ///     1. This means sometime there are several consecutive space tokens. The handle of which is
 ///        left to the parser.
 ///    doc/latex_grammar/1_overview.md#Comments for more details.
@@ -49,7 +49,10 @@ pub enum TokenType {
     SlashOpenBracket,  // \[
     SlashCloseBracket, // \]
 
-    Word, // Text does not contains any space
+    Word, // Text that does not contains any space
+    // the basic unit for text is word instead of sentence, because that are other
+    // word-like units, like comment and inline math
+    Comment, // Can not just ignore the comment, as we are working on a formatter
 
     // Escaped Characters can not be simply treated as Text
     // Some of them have special functionalities
@@ -87,20 +90,28 @@ pub fn scan(source: &str) -> Vec<Token> {
                     ret.push(Token::new(TokenType::Dollar, "$".into()));
                 }
             }
+            // As we are working on a formatter, we can not just ignore the comments
+            // check doc/latex_grammar/1_overview.md#Comments  for behaviour of
+            // comments in latex
             '%' => {
-                // check doc/latex_grammar/1_overview.md#Comments
-                // commands are ignored until the end of an line
                 let end_of_line = index_to_end_of_cur_line(&chars, i);
-                ret.push(Token::new(TokenType::Space, String::new()));
 
-                if is_beginning_of_line(&chars, i) || end_of_line == chars.len() - 1 {
-                    // if the comment is at the beginning of a line, ignore the
-                    // last new line character
-                    //
-                    // Note the end_of_line function return the index of the
-                    // last character index is at the last line.
+                // index_to_end_of_cur_line returns the index of next \n char
+                // marking the end of current line
+                // however, if the current line is the end of the document and does
+                // not contain a \n, it returns the index of last character of the
+                // document
+                if end_of_line == chars.len() - 1 && chars[end_of_line] != '\n' {
+                    ret.push(Token::new(
+                        TokenType::Comment,
+                        chars[i+1..=end_of_line].iter().collect(),
+                    ));
                     i = end_of_line;
                 } else {
+                    ret.push(Token::new(
+                        TokenType::Comment,
+                        chars[i+1..end_of_line].iter().collect(),
+                    ));
                     i = end_of_line - 1;
                 }
             }
@@ -263,16 +274,17 @@ fn is_beginning_of_line(source: &[char], index: usize) -> bool {
     false
 }
 
-/// return the index of the end of the current line, including the newline character
-/// If the current line is the last line, return the last index
+/// return the index of the \n char marking the end of the current line
+/// If the current line is the last line in the document,it
+/// return the last index
 ///
 /// EG
-/// / aaa\n
-/// /    ^ //return 3
-/// / \n\n
-/// / ^   //return 0
-/// aaaa
-///    ^ //return 3
+/// $ aaa\n
+/// $    ^ //return 3
+/// $ \n\n
+/// $ ^   //return 0
+/// $ aaaa (End of Document)
+/// $    ^ //return 3
 /// Will panic if index is not valid, that is, index > source.len()
 fn index_to_end_of_cur_line(source: &[char], index: usize) -> usize {
     if index >= source.len() {
@@ -346,27 +358,30 @@ mod test {
         assert_eq!(tokens[2].lexeme, "b");
 
         let tokens = scan("%\nb");
-        assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token_type, TokenType::Space);
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].token_type, TokenType::Comment);
 
-        assert_eq!(tokens[1].token_type, TokenType::Word);
-        assert_eq!(tokens[1].lexeme, "b");
+        assert_eq!(tokens[1].token_type, TokenType::Newline);
+
+        assert_eq!(tokens[2].token_type, TokenType::Word);
+        assert_eq!(tokens[2].lexeme, "b");
 
         let tokens = scan(
             r##"a %
 %
 aaa"##,
         );
-        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens.len(), 7);
         assert_eq!(tokens[0].token_type, TokenType::Word);
         assert_eq!(tokens[0].lexeme, "a");
-
         assert_eq!(tokens[1].token_type, TokenType::Space);
-        assert_eq!(tokens[2].token_type, TokenType::Space);
+
+        assert_eq!(tokens[2].token_type, TokenType::Comment);
         assert_eq!(tokens[3].token_type, TokenType::Newline);
-        assert_eq!(tokens[4].token_type, TokenType::Space);
-        assert_eq!(tokens[5].token_type, TokenType::Word);
-        assert_eq!(tokens[5].lexeme, "aaa");
+        assert_eq!(tokens[4].token_type, TokenType::Comment);
+        assert_eq!(tokens[5].token_type, TokenType::Newline);
+        assert_eq!(tokens[6].token_type, TokenType::Word);
+        assert_eq!(tokens[6].lexeme, "aaa");
     }
 
     #[test]
@@ -423,7 +438,6 @@ aaa"##,
         assert_eq!(tokens[6].token_type, TokenType::Word);
         assert_eq!(tokens[6].lexeme, ",");
         assert_eq!(tokens[7].token_type, TokenType::Space);
-
     }
     #[test]
     fn test_long_text() {
@@ -557,6 +571,43 @@ vi superum saevae memorem Iunonis ob iram"##,
     }
 
     #[test]
+    fn test_comment() {
+        let tokens = scan(
+            r##"Aeneid % By Virgil
+arma virumque cano
+%I sing of arms and man
+Triae qui"##
+            );
+        assert_eq!(tokens.len(), 15); 
+        assert_eq!(tokens[0].token_type, TokenType::Word);
+        assert_eq!(tokens[0].lexeme, "Aeneid");
+        assert_eq!(tokens[1].token_type, TokenType::Space);
+        assert_eq!(tokens[2].token_type, TokenType::Comment);
+        assert_eq!(tokens[2].lexeme, " By Virgil");
+
+        assert_eq!(tokens[3].token_type, TokenType::Newline);
+        assert_eq!(tokens[4].token_type, TokenType::Word);
+        assert_eq!(tokens[4].lexeme, "arma");
+        assert_eq!(tokens[5].token_type, TokenType::Space);
+        assert_eq!(tokens[6].token_type, TokenType::Word);
+        assert_eq!(tokens[6].lexeme, "virumque");
+        assert_eq!(tokens[7].token_type, TokenType::Space);
+        assert_eq!(tokens[8].token_type, TokenType::Word);
+        assert_eq!(tokens[8].lexeme, "cano");
+
+        assert_eq!(tokens[9].token_type, TokenType::Newline);
+        assert_eq!(tokens[10].token_type, TokenType::Comment);
+        assert_eq!(tokens[10].lexeme, "I sing of arms and man");
+        assert_eq!(tokens[11].token_type, TokenType::Newline);
+
+        assert_eq!(tokens[12].token_type, TokenType::Word); 
+        assert_eq!(tokens[12].lexeme, "Triae"); 
+        assert_eq!(tokens[13].token_type, TokenType::Space); 
+        assert_eq!(tokens[14].token_type, TokenType::Word);
+        assert_eq!(tokens[14].lexeme, "qui");
+    }
+
+    #[test]
     fn test_command() {
         let tokens = scan(
             r##"\alpha \beta \gamma
@@ -634,13 +685,14 @@ vi superum saevae memorem Iunonis ob iram"##,
     }
 
     #[test]
-    fn comphrensive_test_1() {
+    fn comprehensive_test_1() {
         let tokens = scan(
             r##"\documentclass{article}
 \begin{document}
 Hello, World! $E=mc^2$ 
-\end{document} %This is comment"##,
+\end{document} %This is a comment"##,
         );
+        println!("{:?}", tokens);
         assert_eq!(tokens.len(), 27);
 
         // 1st line
@@ -681,14 +733,16 @@ Hello, World! $E=mc^2$
         assert_eq!(tokens[20].token_type, TokenType::Newline);
 
         // 5th line
-        assert_eq!(tokens[21].token_type, TokenType::Command); 
-        assert_eq!(tokens[21].lexeme, r"end"); 
+        assert_eq!(tokens[21].token_type, TokenType::Command);
+        assert_eq!(tokens[21].lexeme, r"end");
         assert_eq!(tokens[22].token_type, TokenType::LeftCurlyBracket);
         assert_eq!(tokens[23].token_type, TokenType::Word);
         assert_eq!(tokens[23].lexeme, "document");
         assert_eq!(tokens[24].token_type, TokenType::RightCurlyBracket);
         // Trailing comment
         assert_eq!(tokens[25].token_type, TokenType::Space);
-        assert_eq!(tokens[26].token_type, TokenType::Space); // comment is ignored
+
+        assert_eq!(tokens[26].token_type, TokenType::Comment);
+        assert_eq!(tokens[26].lexeme, "This is a comment");
     }
 }

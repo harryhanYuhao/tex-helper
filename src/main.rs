@@ -9,6 +9,7 @@ mod cli;
 mod config;
 mod utils;
 mod latex_interpreter;
+mod markdown_interpreter;
 
 use config::Config;
 
