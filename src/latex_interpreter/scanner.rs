@@ -1,4 +1,7 @@
+use std::fmt::{Display, Formatter, self};
 /// A custom scanner for LaTex
+///
+/// This files defines the struct Token and the scan function.
 ///
 /// Scan input a &str and output a Vec of Tokens.
 /// Tokens, for the most parts, are scanned in the obvious way: all speical
@@ -19,10 +22,12 @@
 /// So `apple banana orange` will be scanned into 5 tokens: Word(apple), Space, Word(b), Space, Word(orange)
 /// 1. Commands are scanned into command tokens, the beginning backslash is not in the lexeme.
 /// 1. Escaped characters are into EscapedChar, the backslash is not in the lexeme.
+
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
+    pub token_type: TokenType,
+    pub lexeme: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -62,12 +67,33 @@ pub enum TokenType {
     Newline,
 }
 
+
 impl Token {
     pub fn new(token_type: TokenType, lexeme: String) -> Self {
         Token { token_type, lexeme }
     }
 }
 
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut ret = format!("{:?}({:?})", self.token_type, self.lexeme);
+        if self.token_type == TokenType::Newline {
+            ret.push_str("\n");
+        } else {
+            ret.push_str(" ");
+        }
+        write!(f, "{}", ret)
+    }
+}
+
+
+/// This is the major function of this file.
+///
+/// Input: A string representing latex code read from Latex file 
+/// Output: A vector of Tokens 
+///
+/// This function implements a naive regex algorithm.
+/// TODO: describe formally the algorithm, and the expected output
 pub fn scan(source: &str) -> Vec<Token> {
     let chars: Vec<char> = source.chars().collect();
     let length = chars.len();
@@ -302,8 +328,9 @@ fn index_to_end_of_cur_line(source: &[char], index: usize) -> usize {
     i
 }
 
+
 #[cfg(test)]
-mod test {
+mod test_scan {
     use super::*;
 
     #[test]
@@ -744,5 +771,26 @@ Hello, World! $E=mc^2$
 
         assert_eq!(tokens[26].token_type, TokenType::Comment);
         assert_eq!(tokens[26].lexeme, "This is a comment");
+    }
+}
+
+#[cfg(test)]
+mod test_token_token_type {
+    use super::*;
+
+    #[test]
+    fn test_token_display() {
+        let input = r##"\documentclass{article}
+\begin{document} 
+Hello, World! $E=mc^2$ 
+\end{document} %This is a comment"##;
+        let tokens = scan(input);
+
+        println!("Input text:\n{}", input);
+
+        println!("Scanned tokens:");
+        for i in tokens {
+            print!("{}", i);
+        }
     }
 }

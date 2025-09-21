@@ -21,7 +21,6 @@ Markdown spacing and new line is similar to that of latex. That is
 1. A single new line is the same as space 
 1. One or more empty lines constitutes a linebreak.
 
-Tab (equivalent to 4 space) at the beginning of a paragraph, however, is not ignored. 
 (The beginning of a paragraph means that either it is at the beginning of the document, or it is preceeded by one or more empty lines.
 
 ### Sections 

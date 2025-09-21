@@ -23,7 +23,7 @@ pub enum TokenType {
                        
     Star,              // *
     Slash,         // -
-    Section(u8),     // # or ## 
+    Section(u8),   // # or ## 
     Indent(u8),    //
 
     // Backslash is almost never used alone. When appear by itself, it create space in text mode
