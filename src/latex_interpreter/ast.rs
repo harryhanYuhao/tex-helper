@@ -1,3 +1,4 @@
+use std::convert;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
@@ -5,11 +6,14 @@ pub type NodePtr = Arc<Mutex<Node>>;
 
 #[derive(Debug)]
 pub enum NodeType {
+    Passage,   // A passage consisiste of many paragraphs
     Paragraph,
-    Words,
-    Operator, // like ^ _
+    Word,
+    Operator,  // ^ _
+    Ampersand, // & are used for alignment in Latex
     Space,
-    LineBreak,
+    DoubleBackSlash, //  \\ 
+    LineBreak,  // /n  A single line break is considered as a space
 
     Command,
     BraceArg, // {para}
@@ -31,6 +35,26 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn new(lexeme: &str, node_type: NodeType) -> Self {
+        let lexeme = lexeme.to_string();
+        Node {
+            lexeme,
+            node_type,
+            children: vec![],
+        }
+    }
+
+    pub fn attach(&mut self, ptr: NodePtr) {
+        self.children.push(ptr);
+    }
+
+    pub fn empty_passage_ptr() -> NodePtr {
+        Arc::new(Mutex::new(Node {
+            lexeme: String::new(),
+            node_type: NodeType::Passage,
+            children: vec![],
+        }))
+    }
     pub fn empty_paragraph_ptr() -> NodePtr {
         Arc::new(Mutex::new(Node {
             lexeme: String::new(),
@@ -57,6 +81,7 @@ impl Node {
 }
 
 /// Expected to display ast node with tree format (like the output of bash tree)
+/// like these
 /// Paragraph()
 /// ├── Paragraph()
 /// │   └── Paragraph()
@@ -111,5 +136,11 @@ impl fmt::Display for Node {
             }
         }
         write!(f, "{}", dis)
+    }
+}
+
+impl convert::Into<NodePtr> for Node {
+    fn into(self) -> NodePtr {
+        Arc::new(Mutex::new(self))
     }
 }

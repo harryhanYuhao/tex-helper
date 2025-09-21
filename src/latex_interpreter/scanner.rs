@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter, self};
+
 /// A custom scanner for LaTex
 ///
 /// This files defines the struct Token and the scan function.
