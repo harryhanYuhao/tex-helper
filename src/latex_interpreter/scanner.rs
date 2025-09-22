@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter, self};
+use std::fmt::{self, Display, Formatter};
 
 /// A custom scanner for LaTex
 ///
@@ -24,7 +24,6 @@ use std::fmt::{Display, Formatter, self};
 /// 1. Commands are scanned into command tokens, the beginning backslash is not in the lexeme.
 /// 1. Escaped characters are into EscapedChar, the backslash is not in the lexeme.
 
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Token {
     pub token_type: TokenType,
@@ -34,21 +33,26 @@ pub struct Token {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum TokenType {
     // Reserved Characters
-    Hash,              // #
-    Dollar,            // $
-    DoubleDollar,      // double dollar must be consective
-    Uptick,            // ^
-    Ampersand,         // &
-    Underline,         // _
+    Hash,         // #
+    Dollar,       // $
+    DoubleDollar, // double dollar must be consective
+    Ampersand,    // &
+                  
+    // These three are classified as operator
+    Tilde,     // ~
+    Uptick,    // ^
+    Underline, // _
+
     LeftCurlyBracket,  // {
     RightCurlyBracket, // }
 
     // Backslash is almost never used alone. When appear by itself, it create space in text mode
     Backslash, // \
-    Tilde,     // ~
 
     DoubleBackslash, // \\
+                     
     Command,
+
     LeftSquareBracket,  // [
     RightSquareBracket, // ]
 
@@ -68,10 +72,22 @@ pub enum TokenType {
     Newline,
 }
 
-
 impl Token {
     pub fn new(token_type: TokenType, lexeme: String) -> Self {
         Token { token_type, lexeme }
+    }
+
+    pub fn to_string_from_vec(tokens: &[Token]) -> String {
+        let mut ret = String::new();
+
+        for i in tokens {
+            ret.push_str(&format!("{}", i));
+        }
+        ret
+    }
+
+    pub fn is_operator(&self) -> bool {
+        self.token_type == TokenType::Uptick || self.token_type == TokenType::Underline
     }
 }
 
@@ -87,11 +103,10 @@ impl Display for Token {
     }
 }
 
-
 /// This is the major function of this file.
 ///
-/// Input: A string representing latex code read from Latex file 
-/// Output: A vector of Tokens 
+/// Input: A string representing latex code read from Latex file
+/// Output: A vector of Tokens
 ///
 /// This function implements a naive regex algorithm.
 /// TODO: describe formally the algorithm, and the expected output
@@ -131,13 +146,13 @@ pub fn scan(source: &str) -> Vec<Token> {
                 if end_of_line == chars.len() - 1 && chars[end_of_line] != '\n' {
                     ret.push(Token::new(
                         TokenType::Comment,
-                        chars[i+1..=end_of_line].iter().collect(),
+                        chars[i + 1..=end_of_line].iter().collect(),
                     ));
                     i = end_of_line;
                 } else {
                     ret.push(Token::new(
                         TokenType::Comment,
-                        chars[i+1..end_of_line].iter().collect(),
+                        chars[i + 1..end_of_line].iter().collect(),
                     ));
                     i = end_of_line - 1;
                 }
@@ -328,7 +343,6 @@ fn index_to_end_of_cur_line(source: &[char], index: usize) -> usize {
     }
     i
 }
-
 
 #[cfg(test)]
 mod test_scan {
@@ -604,9 +618,9 @@ vi superum saevae memorem Iunonis ob iram"##,
             r##"Aeneid % By Virgil
 arma virumque cano
 %I sing of arms and man
-Triae qui"##
-            );
-        assert_eq!(tokens.len(), 15); 
+Triae qui"##,
+        );
+        assert_eq!(tokens.len(), 15);
         assert_eq!(tokens[0].token_type, TokenType::Word);
         assert_eq!(tokens[0].lexeme, "Aeneid");
         assert_eq!(tokens[1].token_type, TokenType::Space);
@@ -628,9 +642,9 @@ Triae qui"##
         assert_eq!(tokens[10].lexeme, "I sing of arms and man");
         assert_eq!(tokens[11].token_type, TokenType::Newline);
 
-        assert_eq!(tokens[12].token_type, TokenType::Word); 
-        assert_eq!(tokens[12].lexeme, "Triae"); 
-        assert_eq!(tokens[13].token_type, TokenType::Space); 
+        assert_eq!(tokens[12].token_type, TokenType::Word);
+        assert_eq!(tokens[12].lexeme, "Triae");
+        assert_eq!(tokens[13].token_type, TokenType::Space);
         assert_eq!(tokens[14].token_type, TokenType::Word);
         assert_eq!(tokens[14].lexeme, "qui");
     }

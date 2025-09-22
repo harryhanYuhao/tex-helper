@@ -9,7 +9,7 @@ pub enum NodeType {
     Passage,   // A passage consisiste of many paragraphs
     Paragraph,
     Word,
-    Operator,  // ^ _
+    Operation,  // ^ _
     Ampersand, // & are used for alignment in Latex
     Space,
     DoubleBackSlash, //  \\ 
