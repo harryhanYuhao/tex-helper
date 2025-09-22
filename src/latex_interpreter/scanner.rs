@@ -67,10 +67,7 @@ pub enum TokenType {
     // Escaped Characters can not be simply treated as Text
     // Some of them have special functionalities
     EscapedChar,
-    // NOTE: DELETE THIS? The space is assumes between any word tokens. A deliberate space is a
-    // word with lexeme space
-    Space,
-    // The job of making two newlines into a paragraph is left to the parser
+    
     Newline,
 }
 
@@ -233,9 +230,16 @@ pub fn scan(source: &str) -> Vec<Token> {
                 }
             }
             '\n' => {
-                // The job of parsing two newlines into a paragraph is left to
-                // the parser
-                ret.push(Token::new(TokenType::Newline, "\n".into()));
+                let mut newline_count = 1;
+                while i + 1 < length && (chars[i + 1] == ' ' || chars[i+1] == '\t' || chars[i + 1] == '\n'){
+                    if chars[i+1] == '\n' {
+                        newline_count += 1;
+                    }
+                    i += 1;
+                }
+                if newline_count >= 2{
+                    ret.push(Token::new(TokenType::Newline, "\n".into()));
+                }
             }
             _ => {
                 // Scan text until next reserved character or whitespace
@@ -409,7 +413,6 @@ mod test_scan {
         let tokens = scan("a\nb");
         let expected: Vec<(TokenType, String)> = vec![
             (TokenType::Word, "a".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "b".into()),
         ];
         compare_expected_and_tokens(expected, tokens);
@@ -422,9 +425,7 @@ aaa"##,
         let expected: Vec<(TokenType, String)> = vec![
             (TokenType::Word, "a".into()),
             (TokenType::Comment, " A comment".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Comment, "".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "aaa".into()),
         ];
         compare_expected_and_tokens(expected, tokens);
@@ -497,13 +498,11 @@ vi superum saevae memorem Iunonis ob iram"##,
             (TokenType::Word, "primus".into()),
             (TokenType::Word, "ab".into()),
             (TokenType::Word, "oris".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "Italiam,".into()),
             (TokenType::Word, "fato".into()),
             (TokenType::Word, "profugus,".into()),
             (TokenType::Word, "Laviniaque".into()),
             (TokenType::Word, "venit".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "litora,".into()),
             (TokenType::Word, "multum".into()),
             (TokenType::Word, "ille".into()),
@@ -512,7 +511,6 @@ vi superum saevae memorem Iunonis ob iram"##,
             (TokenType::Word, "iactatus".into()),
             (TokenType::Word, "et".into()),
             (TokenType::Word, "alto".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "vi".into()),
             (TokenType::Word, "superum".into()),
             (TokenType::Word, "saevae".into()),
@@ -535,13 +533,10 @@ Triae qui"##,
         let expected: Vec<(TokenType, String)> = vec![
             (TokenType::Word, "Aeneid".into()),
             (TokenType::Comment, " By Virgil".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "arma".into()),
             (TokenType::Word, "virumque".into()),
             (TokenType::Word, "cano".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Comment, "I sing of arms and man".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "Triae".into()),
             (TokenType::Word, "qui".into()),
         ];
@@ -560,9 +555,7 @@ Triae qui"##,
             (TokenType::Command, "alpha".into()),
             (TokenType::Command, "beta".into()),
             (TokenType::Command, "gamma".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Command, "delta".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Command, "epsilon".into()),
         ];
 
@@ -594,6 +587,7 @@ Triae qui"##,
             r##"\documentclass{article}
 \begin{document}
 Hello, World! $E=mc^2$ 
+
 \end{document} %This is a comment"##,
         );
 
@@ -602,12 +596,10 @@ Hello, World! $E=mc^2$
             (TokenType::LeftCurlyBracket, "{".into()),
             (TokenType::Word, "article".into()),
             (TokenType::RightCurlyBracket, "}".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Command, "begin".into()),
             (TokenType::LeftCurlyBracket, "{".into()),
             (TokenType::Word, "document".into()),
             (TokenType::RightCurlyBracket, "}".into()),
-            (TokenType::Newline, "\n".into()),
             (TokenType::Word, "Hello,".into()),
             (TokenType::Word, "World!".into()),
             (TokenType::Dollar, "$".into()),

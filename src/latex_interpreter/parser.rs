@@ -195,52 +195,6 @@ fn parse_consecutive_line_breaks(input: &[Token], pos: &mut usize) {
     }
 }
 
-/// increment pos for the number of consecutive space or newline token, as a single new line is considered as space
-/// If reaching the end of the input, meeting two consective newline tokens, or
-/// meeting tokens of another tokentype, simple returns
-///
-/// This function shall only be called when input[*pos] is space or newline, otherwise will panic
-///
-/// eg:         
-/// If we have input:
-/// input = WORD SPACE NEWLINE SPACE WORD ...
-/// and *pos = 1
-/// After returning, *pos is modified to 4
-///
-/// If we have input:
-/// input = WORD SPACE NEWLINE NEWLINE WORD ...
-/// and *pos = 0
-/// PANIC!!!! (input[0] is not SPACE or NEWLINE)
-///
-/// If we have input:
-/// input = WORD SPACE NEWLINE NEWLINE WORD ...
-/// and *pos = 1
-/// After returning, *pos = 2 (Two consecutive newlines is a paragraph break, not)
-fn parse_space(input: &[Token], pos: &mut usize) {
-    if *pos >= input.len() {
-        panic!("*pos >= input.len()!!!");
-    }
-    if input[*pos].token_type != TokenType::Space && input[*pos].token_type != TokenType::Newline {
-        panic!(
-            "Expected: Space or NewLine token, Found: {:?}",
-            input[*pos].token_type
-        );
-    }
-
-    while *pos < input.len()
-        && (input[*pos].token_type == TokenType::Space
-            || input[*pos].token_type == TokenType::Newline)
-    {
-        // In the case of two consecutive newlines, just return
-        if input[*pos].token_type == TokenType::Newline {
-            if *pos + 1 < input.len() && input[*pos + 1].token_type == TokenType::Newline {
-                return;
-            }
-        }
-        *pos += 1;
-    }
-}
-
 fn parse_brace_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
     let mut ret = Node::new("".into(), NodeType::BraceArg);
 
@@ -335,7 +289,7 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
                 // Operators are ^ _
                 // TODO:: Implement Word SPACE* OPERATOR
                 // TODO: CHECK NEXT NONE SPACE TOKEN
-                if *pos+1 < input.len() && input[*pos+1].is_operator() {
+                if *pos + 1 < input.len() && input[*pos + 1].is_operator() {
                     let tmp = parse_operator(input, pos)?;
 
                     paragraph.attach(tmp.0);
@@ -362,25 +316,15 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
                 paragraph.attach(Node::new(&cur_token.lexeme, NodeType::Comment).into());
                 *pos += 1;
             }
-            TokenType::Space => {
-                parse_space(input, pos);
-                // between words token, we assume there is a space
-                // The space token is for manually created space like `\ `
-                // NOTE:: maybe we can simply ignore space token type in the
-                // scanner
-            }
             TokenType::Newline => {
                 // In case of two consecutive newline, return ret
                 // and let the parse function to handle
-                if poke2(input, *pos, TokenType::Newline, TokenType::Newline) {
-                    return Ok(ret.clone());
-                }
-                parse_space(input, pos);
+                return Ok(ret.clone());
             }
             TokenType::Backslash => {
                 // This is forced, deliberate, space
                 *pos += 1;
-                paragraph.attach(Node::new(" ", NodeType::Space).into());
+                paragraph.attach(Node::new(" ", NodeType::Word).into());
             }
             TokenType::Ampersand => {
                 paragraph.attach(Node::new(&cur_token.lexeme, NodeType::Ampersand).into());
