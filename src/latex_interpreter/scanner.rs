@@ -37,7 +37,7 @@ pub enum TokenType {
     Dollar,       // $
     DoubleDollar, // double dollar must be consective
     Ampersand,    // &
-                  
+
     // These three are classified as operator
     Tilde,     // ~
     Uptick,    // ^
@@ -50,7 +50,7 @@ pub enum TokenType {
     Backslash, // \
 
     DoubleBackslash, // \\
-                     
+
     Command,
 
     LeftSquareBracket,  // [
@@ -67,6 +67,8 @@ pub enum TokenType {
     // Escaped Characters can not be simply treated as Text
     // Some of them have special functionalities
     EscapedChar,
+    // NOTE: DELETE THIS? The space is assumes between any word tokens. A deliberate space is a
+    // word with lexeme space
     Space,
     // The job of making two newlines into a paragraph is left to the parser
     Newline,
@@ -227,10 +229,12 @@ pub fn scan(source: &str) -> Vec<Token> {
                     while i + 1 < length && (chars[i + 1] == ' ' || chars[i + 1] == '\t') {
                         i += 1;
                     }
-                    ret.push(Token::new(TokenType::Space, String::new()));
+                    // ret.push(Token::new(TokenType::Space, String::new()));
                 }
             }
             '\n' => {
+                // The job of parsing two newlines into a paragraph is left to
+                // the parser
                 ret.push(Token::new(TokenType::Newline, "\n".into()));
             }
             _ => {
@@ -250,10 +254,10 @@ pub fn scan(source: &str) -> Vec<Token> {
                     chars[start..=i].iter().collect::<String>(),
                 ));
             }
-        }
+        } // end of match
 
         i += 1;
-    }
+    } // end of loop
     ret
 }
 
@@ -348,6 +352,26 @@ fn index_to_end_of_cur_line(source: &[char], index: usize) -> usize {
 mod test_scan {
     use super::*;
 
+    /// Aux function for test
+    fn compare_expected_and_tokens(expected: Vec<(TokenType, String)>, tokens: Vec<Token>) {
+        assert_eq!(expected.len(), tokens.len());
+
+        for (i, token) in tokens.iter().enumerate() {
+            if token.token_type != expected[i].0 {
+                panic!(
+                    "Token type mismatch at index {}: expected {:?}, got {:?}",
+                    i, expected[i].0, token.token_type
+                );
+            }
+            if token.lexeme != expected[i].1 {
+                panic!(
+                    "Token lexeme mismatch at index {}: expected {:?}, got {:?}",
+                    i, expected[i].1, token.lexeme
+                );
+            }
+        }
+    }
+
     #[test]
     fn test_is_beginning_of_line() {
         let s: Vec<char> = "012\n  6\n89".chars().collect();
@@ -372,67 +396,48 @@ mod test_scan {
     #[test]
     fn test_fnscan_space() {
         let tokens = scan("  a bc  d ");
-        assert_eq!(tokens.len(), 6);
-        assert_eq!(tokens[0].token_type, TokenType::Word);
-        assert_eq!(tokens[0].lexeme, "a");
-
-        assert_eq!(tokens[1].token_type, TokenType::Space);
-        assert_eq!(tokens[2].token_type, TokenType::Word);
-        assert_eq!(tokens[2].lexeme, "bc");
-
-        assert_eq!(tokens[3].token_type, TokenType::Space);
-        assert_eq!(tokens[4].token_type, TokenType::Word);
-        assert_eq!(tokens[4].lexeme, "d");
-
-        assert_eq!(tokens[5].token_type, TokenType::Space);
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::Word, "a".into()),
+            (TokenType::Word, "bc".into()),
+            (TokenType::Word, "d".into()),
+        ];
+        compare_expected_and_tokens(expected, tokens);
     }
 
     #[test]
     fn test_fnscan_newline() {
         let tokens = scan("a\nb");
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].token_type, TokenType::Word);
-        assert_eq!(tokens[0].lexeme, "a");
-
-        assert_eq!(tokens[1].token_type, TokenType::Newline);
-
-        assert_eq!(tokens[2].token_type, TokenType::Word);
-        assert_eq!(tokens[2].lexeme, "b");
-
-        let tokens = scan("%\nb");
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].token_type, TokenType::Comment);
-
-        assert_eq!(tokens[1].token_type, TokenType::Newline);
-
-        assert_eq!(tokens[2].token_type, TokenType::Word);
-        assert_eq!(tokens[2].lexeme, "b");
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::Word, "a".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "b".into()),
+        ];
+        compare_expected_and_tokens(expected, tokens);
 
         let tokens = scan(
-            r##"a %
+            r##"a % A comment
 %
 aaa"##,
         );
-        assert_eq!(tokens.len(), 7);
-        assert_eq!(tokens[0].token_type, TokenType::Word);
-        assert_eq!(tokens[0].lexeme, "a");
-        assert_eq!(tokens[1].token_type, TokenType::Space);
-
-        assert_eq!(tokens[2].token_type, TokenType::Comment);
-        assert_eq!(tokens[3].token_type, TokenType::Newline);
-        assert_eq!(tokens[4].token_type, TokenType::Comment);
-        assert_eq!(tokens[5].token_type, TokenType::Newline);
-        assert_eq!(tokens[6].token_type, TokenType::Word);
-        assert_eq!(tokens[6].lexeme, "aaa");
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::Word, "a".into()),
+            (TokenType::Comment, " A comment".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Comment, "".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "aaa".into()),
+        ];
+        compare_expected_and_tokens(expected, tokens);
     }
 
     #[test]
     fn test_slash_bracket() {
         let tokens = scan(r"\[ \]");
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].token_type, TokenType::SlashOpenBracket);
-        assert_eq!(tokens[1].token_type, TokenType::Space);
-        assert_eq!(tokens[2].token_type, TokenType::SlashCloseBracket);
+        let expected = vec![
+            (TokenType::SlashOpenBracket, String::from("\\[")),
+            (TokenType::SlashCloseBracket, String::from("\\]")),
+        ];
+        compare_expected_and_tokens(expected, tokens);
     }
 
     #[test]
@@ -464,23 +469,16 @@ aaa"##,
     #[test]
     fn test_short_text() {
         let tokens = scan("arma virumque cano , ");
-        assert_eq!(tokens.len(), 8);
-        assert_eq!(tokens[0].token_type, TokenType::Word);
-        assert_eq!(tokens[0].lexeme, "arma");
-        assert_eq!(tokens[1].token_type, TokenType::Space);
 
-        assert_eq!(tokens[2].token_type, TokenType::Word);
-        assert_eq!(tokens[2].lexeme, "virumque");
-        assert_eq!(tokens[3].token_type, TokenType::Space);
-
-        assert_eq!(tokens[4].token_type, TokenType::Word);
-        assert_eq!(tokens[4].lexeme, "cano");
-        assert_eq!(tokens[5].token_type, TokenType::Space);
-
-        assert_eq!(tokens[6].token_type, TokenType::Word);
-        assert_eq!(tokens[6].lexeme, ",");
-        assert_eq!(tokens[7].token_type, TokenType::Space);
+        let expected: Vec<(TokenType, String)>= vec![
+            (TokenType::Word, "arma".into()),
+            (TokenType::Word, "virumque".into()),
+            (TokenType::Word, "cano".into()),
+            (TokenType::Word, ",".into()),
+        ];
+        compare_expected_and_tokens(expected, tokens);
     }
+
     #[test]
     fn test_long_text() {
         let tokens = scan(
@@ -490,126 +488,40 @@ litora, multum ille et terris iactatus et alto
 vi superum saevae memorem Iunonis ob iram"##,
         );
 
-        assert_eq!(tokens.len(), 58);
-        assert_eq!(tokens[0].token_type, TokenType::Word);
-        assert_eq!(tokens[0].lexeme, "arma");
-        assert_eq!(tokens[1].token_type, TokenType::Space);
-
-        assert_eq!(tokens[2].token_type, TokenType::Word);
-        assert_eq!(tokens[2].lexeme, "virumque");
-        assert_eq!(tokens[3].token_type, TokenType::Space);
-
-        assert_eq!(tokens[4].token_type, TokenType::Word);
-        assert_eq!(tokens[4].lexeme, "cano,");
-        assert_eq!(tokens[5].token_type, TokenType::Space);
-
-        assert_eq!(tokens[6].token_type, TokenType::Word);
-        assert_eq!(tokens[6].lexeme, "Troiae");
-        assert_eq!(tokens[7].token_type, TokenType::Space);
-
-        assert_eq!(tokens[8].token_type, TokenType::Word);
-        assert_eq!(tokens[8].lexeme, "qui");
-        assert_eq!(tokens[9].token_type, TokenType::Space);
-
-        assert_eq!(tokens[10].token_type, TokenType::Word);
-        assert_eq!(tokens[10].lexeme, "primus");
-        assert_eq!(tokens[11].token_type, TokenType::Space);
-
-        assert_eq!(tokens[12].token_type, TokenType::Word);
-        assert_eq!(tokens[12].lexeme, "ab");
-        assert_eq!(tokens[13].token_type, TokenType::Space);
-
-        assert_eq!(tokens[14].token_type, TokenType::Word);
-        assert_eq!(tokens[14].lexeme, "oris");
-
-        assert_eq!(tokens[15].token_type, TokenType::Space);
-        assert_eq!(tokens[16].token_type, TokenType::Newline);
-
-        // Continue with the second line
-        assert_eq!(tokens[17].token_type, TokenType::Word);
-        assert_eq!(tokens[17].lexeme, "Italiam,");
-        assert_eq!(tokens[18].token_type, TokenType::Space);
-
-        assert_eq!(tokens[19].token_type, TokenType::Word);
-        assert_eq!(tokens[19].lexeme, "fato");
-        assert_eq!(tokens[20].token_type, TokenType::Space);
-
-        assert_eq!(tokens[21].token_type, TokenType::Word);
-        assert_eq!(tokens[21].lexeme, "profugus,");
-        assert_eq!(tokens[22].token_type, TokenType::Space);
-
-        assert_eq!(tokens[23].token_type, TokenType::Word);
-        assert_eq!(tokens[23].lexeme, "Laviniaque");
-        assert_eq!(tokens[24].token_type, TokenType::Space);
-
-        assert_eq!(tokens[25].token_type, TokenType::Word);
-        assert_eq!(tokens[25].lexeme, "venit");
-        assert_eq!(tokens[26].token_type, TokenType::Space);
-
-        assert_eq!(tokens[27].token_type, TokenType::Newline);
-
-        // Third line
-        assert_eq!(tokens[28].token_type, TokenType::Word);
-        assert_eq!(tokens[28].lexeme, "litora,");
-        assert_eq!(tokens[29].token_type, TokenType::Space);
-
-        assert_eq!(tokens[30].token_type, TokenType::Word);
-        assert_eq!(tokens[30].lexeme, "multum");
-        assert_eq!(tokens[31].token_type, TokenType::Space);
-
-        assert_eq!(tokens[32].token_type, TokenType::Word);
-        assert_eq!(tokens[32].lexeme, "ille");
-        assert_eq!(tokens[33].token_type, TokenType::Space);
-
-        assert_eq!(tokens[34].token_type, TokenType::Word);
-        assert_eq!(tokens[34].lexeme, "et");
-        assert_eq!(tokens[35].token_type, TokenType::Space);
-
-        assert_eq!(tokens[36].token_type, TokenType::Word);
-        assert_eq!(tokens[36].lexeme, "terris");
-        assert_eq!(tokens[37].token_type, TokenType::Space);
-
-        assert_eq!(tokens[38].token_type, TokenType::Word);
-        assert_eq!(tokens[38].lexeme, "iactatus");
-        assert_eq!(tokens[39].token_type, TokenType::Space);
-
-        assert_eq!(tokens[40].token_type, TokenType::Word);
-        assert_eq!(tokens[40].lexeme, "et");
-        assert_eq!(tokens[41].token_type, TokenType::Space);
-
-        assert_eq!(tokens[42].token_type, TokenType::Word);
-        assert_eq!(tokens[42].lexeme, "alto");
-        assert_eq!(tokens[43].token_type, TokenType::Space);
-
-        assert_eq!(tokens[44].token_type, TokenType::Newline);
-
-        // Fourth line
-        assert_eq!(tokens[45].token_type, TokenType::Word);
-        assert_eq!(tokens[45].lexeme, "vi");
-        assert_eq!(tokens[46].token_type, TokenType::Space);
-
-        assert_eq!(tokens[47].token_type, TokenType::Word);
-        assert_eq!(tokens[47].lexeme, "superum");
-        assert_eq!(tokens[48].token_type, TokenType::Space);
-
-        assert_eq!(tokens[49].token_type, TokenType::Word);
-        assert_eq!(tokens[49].lexeme, "saevae");
-        assert_eq!(tokens[50].token_type, TokenType::Space);
-
-        assert_eq!(tokens[51].token_type, TokenType::Word);
-        assert_eq!(tokens[51].lexeme, "memorem");
-        assert_eq!(tokens[52].token_type, TokenType::Space);
-
-        assert_eq!(tokens[53].token_type, TokenType::Word);
-        assert_eq!(tokens[53].lexeme, "Iunonis");
-        assert_eq!(tokens[54].token_type, TokenType::Space);
-
-        assert_eq!(tokens[55].token_type, TokenType::Word);
-        assert_eq!(tokens[55].lexeme, "ob");
-        assert_eq!(tokens[56].token_type, TokenType::Space);
-
-        assert_eq!(tokens[57].token_type, TokenType::Word);
-        assert_eq!(tokens[57].lexeme, "iram");
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::Word, "arma".into()),
+            (TokenType::Word, "virumque".into()),
+            (TokenType::Word, "cano,".into()),
+            (TokenType::Word, "Troiae".into()),
+            (TokenType::Word, "qui".into()),
+            (TokenType::Word, "primus".into()),
+            (TokenType::Word, "ab".into()),
+            (TokenType::Word, "oris".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "Italiam,".into()),
+            (TokenType::Word, "fato".into()),
+            (TokenType::Word, "profugus,".into()),
+            (TokenType::Word, "Laviniaque".into()),
+            (TokenType::Word, "venit".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "litora,".into()),
+            (TokenType::Word, "multum".into()),
+            (TokenType::Word, "ille".into()),
+            (TokenType::Word, "et".into()),
+            (TokenType::Word, "terris".into()),
+            (TokenType::Word, "iactatus".into()),
+            (TokenType::Word, "et".into()),
+            (TokenType::Word, "alto".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "vi".into()),
+            (TokenType::Word, "superum".into()),
+            (TokenType::Word, "saevae".into()),
+            (TokenType::Word, "memorem".into()),
+            (TokenType::Word, "Iunonis".into()),
+            (TokenType::Word, "ob".into()),
+            (TokenType::Word, "iram".into()),
+        ];
+        compare_expected_and_tokens(expected, tokens);
     }
 
     #[test]
@@ -620,33 +532,21 @@ arma virumque cano
 %I sing of arms and man
 Triae qui"##,
         );
-        assert_eq!(tokens.len(), 15);
-        assert_eq!(tokens[0].token_type, TokenType::Word);
-        assert_eq!(tokens[0].lexeme, "Aeneid");
-        assert_eq!(tokens[1].token_type, TokenType::Space);
-        assert_eq!(tokens[2].token_type, TokenType::Comment);
-        assert_eq!(tokens[2].lexeme, " By Virgil");
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::Word, "Aeneid".into()),
+            (TokenType::Comment, " By Virgil".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "arma".into()),
+            (TokenType::Word, "virumque".into()),
+            (TokenType::Word, "cano".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Comment, "I sing of arms and man".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "Triae".into()),
+            (TokenType::Word, "qui".into()),
+        ];
 
-        assert_eq!(tokens[3].token_type, TokenType::Newline);
-        assert_eq!(tokens[4].token_type, TokenType::Word);
-        assert_eq!(tokens[4].lexeme, "arma");
-        assert_eq!(tokens[5].token_type, TokenType::Space);
-        assert_eq!(tokens[6].token_type, TokenType::Word);
-        assert_eq!(tokens[6].lexeme, "virumque");
-        assert_eq!(tokens[7].token_type, TokenType::Space);
-        assert_eq!(tokens[8].token_type, TokenType::Word);
-        assert_eq!(tokens[8].lexeme, "cano");
-
-        assert_eq!(tokens[9].token_type, TokenType::Newline);
-        assert_eq!(tokens[10].token_type, TokenType::Comment);
-        assert_eq!(tokens[10].lexeme, "I sing of arms and man");
-        assert_eq!(tokens[11].token_type, TokenType::Newline);
-
-        assert_eq!(tokens[12].token_type, TokenType::Word);
-        assert_eq!(tokens[12].lexeme, "Triae");
-        assert_eq!(tokens[13].token_type, TokenType::Space);
-        assert_eq!(tokens[14].token_type, TokenType::Word);
-        assert_eq!(tokens[14].lexeme, "qui");
+        compare_expected_and_tokens(expected, tokens);
     }
 
     #[test]
@@ -656,74 +556,36 @@ Triae qui"##,
 \delta
 \epsilon"##,
         );
-        assert_eq!(tokens.len(), 9);
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::Command, "alpha".into()),
+            (TokenType::Command, "beta".into()),
+            (TokenType::Command, "gamma".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Command, "delta".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Command, "epsilon".into()),
+        ];
 
-        assert_eq!(tokens[0].token_type, TokenType::Command);
-        assert_eq!(tokens[0].lexeme, r"alpha");
-        assert_eq!(tokens[1].token_type, TokenType::Space);
-
-        assert_eq!(tokens[2].token_type, TokenType::Command);
-        assert_eq!(tokens[2].lexeme, r"beta");
-        assert_eq!(tokens[3].token_type, TokenType::Space);
-
-        assert_eq!(tokens[4].token_type, TokenType::Command);
-        assert_eq!(tokens[4].lexeme, r"gamma");
-
-        assert_eq!(tokens[5].token_type, TokenType::Newline);
-        assert_eq!(tokens[6].token_type, TokenType::Command);
-        assert_eq!(tokens[6].lexeme, r"delta");
-
-        assert_eq!(tokens[7].token_type, TokenType::Newline);
-        assert_eq!(tokens[8].token_type, TokenType::Command);
-        assert_eq!(tokens[8].lexeme, r"epsilon");
+        compare_expected_and_tokens(expected, tokens);
     }
 
     #[test]
     fn test_escaped() {
         let tokens = scan(r##"\# \$ \% \^ \& \_ \{ \} \~ \\ \ "##);
-        assert_eq!(tokens.len(), 21);
-
-        assert_eq!(tokens[0].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[0].lexeme, r"#");
-        assert_eq!(tokens[1].token_type, TokenType::Space);
-
-        assert_eq!(tokens[2].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[2].lexeme, r"$");
-        assert_eq!(tokens[3].token_type, TokenType::Space);
-
-        assert_eq!(tokens[4].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[4].lexeme, r"%");
-        assert_eq!(tokens[5].token_type, TokenType::Space);
-
-        assert_eq!(tokens[6].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[6].lexeme, r"^");
-        assert_eq!(tokens[7].token_type, TokenType::Space);
-
-        assert_eq!(tokens[8].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[8].lexeme, r"&");
-        assert_eq!(tokens[9].token_type, TokenType::Space);
-
-        assert_eq!(tokens[10].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[10].lexeme, r"_");
-        assert_eq!(tokens[11].token_type, TokenType::Space);
-
-        assert_eq!(tokens[12].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[12].lexeme, r"{");
-        assert_eq!(tokens[13].token_type, TokenType::Space);
-
-        assert_eq!(tokens[14].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[14].lexeme, r"}");
-        assert_eq!(tokens[15].token_type, TokenType::Space);
-
-        assert_eq!(tokens[16].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[16].lexeme, r"~");
-        assert_eq!(tokens[17].token_type, TokenType::Space);
-
-        assert_eq!(tokens[18].token_type, TokenType::DoubleBackslash);
-        assert_eq!(tokens[19].token_type, TokenType::Space);
-
-        assert_eq!(tokens[20].token_type, TokenType::EscapedChar);
-        assert_eq!(tokens[20].lexeme, r" ");
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::EscapedChar, "#".into()),
+            (TokenType::EscapedChar, "$".into()),
+            (TokenType::EscapedChar, "%".into()),
+            (TokenType::EscapedChar, "^".into()),
+            (TokenType::EscapedChar, "&".into()),
+            (TokenType::EscapedChar, "_".into()),
+            (TokenType::EscapedChar, "{".into()),
+            (TokenType::EscapedChar, "}".into()),
+            (TokenType::EscapedChar, "~".into()),
+            (TokenType::DoubleBackslash, "".into()),
+            (TokenType::EscapedChar, " ".into()),
+        ];
+        compare_expected_and_tokens(expected, tokens);
     }
 
     #[test]
@@ -734,58 +596,34 @@ Triae qui"##,
 Hello, World! $E=mc^2$ 
 \end{document} %This is a comment"##,
         );
-        println!("{:?}", tokens);
-        assert_eq!(tokens.len(), 27);
 
-        // 1st line
-        assert_eq!(tokens[0].token_type, TokenType::Command);
-        assert_eq!(tokens[0].lexeme, r"documentclass");
-        assert_eq!(tokens[1].token_type, TokenType::LeftCurlyBracket);
-        assert_eq!(tokens[2].token_type, TokenType::Word);
-        assert_eq!(tokens[2].lexeme, "article");
-        assert_eq!(tokens[3].token_type, TokenType::RightCurlyBracket);
-        assert_eq!(tokens[4].token_type, TokenType::Newline);
+        let expected: Vec<(TokenType, String)> = vec![
+            (TokenType::Command, "documentclass".into()),
+            (TokenType::LeftCurlyBracket, "{".into()),
+            (TokenType::Word, "article".into()),
+            (TokenType::RightCurlyBracket, "}".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Command, "begin".into()),
+            (TokenType::LeftCurlyBracket, "{".into()),
+            (TokenType::Word, "document".into()),
+            (TokenType::RightCurlyBracket, "}".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Word, "Hello,".into()),
+            (TokenType::Word, "World!".into()),
+            (TokenType::Dollar, "$".into()),
+            (TokenType::Word, "E=mc".into()),
+            (TokenType::Uptick, "^".into()),
+            (TokenType::Word, "2".into()),
+            (TokenType::Dollar, "$".into()),
+            (TokenType::Newline, "\n".into()),
+            (TokenType::Command, "end".into()),
+            (TokenType::LeftCurlyBracket, "{".into()),
+            (TokenType::Word, "document".into()),
+            (TokenType::RightCurlyBracket, "}".into()),
+            (TokenType::Comment, "This is a comment".into()),
+        ];
 
-        // 2nd line
-        assert_eq!(tokens[5].token_type, TokenType::Command);
-        assert_eq!(tokens[5].lexeme, r"begin");
-        assert_eq!(tokens[6].token_type, TokenType::LeftCurlyBracket);
-        assert_eq!(tokens[7].token_type, TokenType::Word);
-        assert_eq!(tokens[7].lexeme, "document");
-        assert_eq!(tokens[8].token_type, TokenType::RightCurlyBracket);
-        assert_eq!(tokens[9].token_type, TokenType::Newline);
-
-        // 3rd line
-        assert_eq!(tokens[10].token_type, TokenType::Word);
-        assert_eq!(tokens[10].lexeme, "Hello,");
-        assert_eq!(tokens[11].token_type, TokenType::Space);
-        assert_eq!(tokens[12].token_type, TokenType::Word);
-        assert_eq!(tokens[12].lexeme, "World!");
-        assert_eq!(tokens[13].token_type, TokenType::Space);
-
-        // 4th line
-        assert_eq!(tokens[14].token_type, TokenType::Dollar);
-        assert_eq!(tokens[15].token_type, TokenType::Word);
-        assert_eq!(tokens[15].lexeme, "E=mc");
-        assert_eq!(tokens[16].token_type, TokenType::Uptick);
-        assert_eq!(tokens[17].token_type, TokenType::Word);
-        assert_eq!(tokens[17].lexeme, "2");
-        assert_eq!(tokens[18].token_type, TokenType::Dollar);
-        assert_eq!(tokens[19].token_type, TokenType::Space);
-        assert_eq!(tokens[20].token_type, TokenType::Newline);
-
-        // 5th line
-        assert_eq!(tokens[21].token_type, TokenType::Command);
-        assert_eq!(tokens[21].lexeme, r"end");
-        assert_eq!(tokens[22].token_type, TokenType::LeftCurlyBracket);
-        assert_eq!(tokens[23].token_type, TokenType::Word);
-        assert_eq!(tokens[23].lexeme, "document");
-        assert_eq!(tokens[24].token_type, TokenType::RightCurlyBracket);
-        // Trailing comment
-        assert_eq!(tokens[25].token_type, TokenType::Space);
-
-        assert_eq!(tokens[26].token_type, TokenType::Comment);
-        assert_eq!(tokens[26].lexeme, "This is a comment");
+        compare_expected_and_tokens(expected, tokens);
     }
 }
 
