@@ -105,10 +105,13 @@ pub fn parse(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {
     let mut prev_pos = pos; // For debug purpose
 
     while pos < input.len() {
-        root.attach(parse_paragraph(input, &mut pos)?);
+        let paragraph = parse_paragraph(input, &mut pos)?;
 
-        if pos < input.len() && poke2(input, pos, TokenType::Newline, TokenType::Newline) {
-            parse_consecutive_line_breaks(input, &mut pos);
+        if poke(input, pos, TokenType::Newline) {
+            root.attach(paragraph);
+            pos += 1;
+        } else if pos == input.len() {
+            root.attach(paragraph);
         }
 
         // For debug purpose
@@ -121,7 +124,7 @@ pub fn parse(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {
     Ok(root_ptr.clone())
 }
 
-/// Check if input[pos] == token_type_1, return Ok(true) if it is, Ok(false) if it is not
+/// Check if input\[pos\] == token_type_1, return Ok(true) if it is, Ok(false) if it is not
 pub fn poke(input: &[Token], pos: usize, token_type_1: TokenType) -> bool {
     if input.len() <= pos {
         return false;
@@ -171,30 +174,25 @@ pub fn poke2vec(
     false
 }
 
-/// increment pos for the number of consecutive newline token
-/// If reaching the end of the input, or meeting tokens of another tokentype, simple returns
-///
-/// This function shall only be called when input[*pos] newline, otherwise will panic
-///
-/// eg:         
-/// If we have input:
-/// input = WORD NEWLINE
-/// and *pos = 1
-/// PANIC!!!!
-///
-/// If we have input:
-/// input = WORD NEWLINE NEWLINE NEWLINE WORD ...
-/// and *pos = 1
-/// After returning, *pos = 4
-fn parse_consecutive_line_breaks(input: &[Token], pos: &mut usize) {
-    if *pos + 1 >= input.len() || !poke2(input, *pos, TokenType::Newline, TokenType::Newline) {
-        panic!("Expected Two consecutive newlines!")
-    }
-    while *pos < input.len() && input[*pos].token_type == TokenType::Newline {
-        *pos += 1;
-    }
-}
+fn parse_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
+    let mut ret = Node::new("".into(), NodeType::BracketArg);
 
+    if !poke(input, *pos, TokenType::LeftSquareBracket) {
+        panic!("Expected Left Curly Bracket!")
+    }
+    *pos += 1;
+
+    let tmp = parse_paragraph(input, pos)?;
+
+    if !poke(input, *pos, TokenType::RightSquareBracket) {
+        panic!("Expected Right Curly Bracket!")
+    }
+    *pos += 1;
+
+    ret.children.push(tmp);
+
+    Ok(ret.into())
+}
 fn parse_brace_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
     let mut ret = Node::new("".into(), NodeType::BraceArg);
 
@@ -273,6 +271,75 @@ fn parse_operator(input: &[Token], pos: &mut usize) -> Result<(NodePtr, bool), B
     Ok((Arc::new(Mutex::new(ret)), false))
 }
 
+fn parse_command(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
+    if !poke(input, *pos, TokenType::Command) {
+        panic!("Expected Command! Internal Bug!");
+    }
+    let mut ret = Node::new(&input[*pos].lexeme, NodeType::Command);
+
+    *pos += 1;
+
+    while poke(input, *pos, TokenType::LeftSquareBracket)
+        || poke(input, *pos, TokenType::LeftCurlyBracket)
+    {
+        if poke(input, *pos, TokenType::LeftSquareBracket) {
+            ret.attach(parse_bracket_arg(input, pos)?);
+        }
+        if poke(input, *pos, TokenType::LeftCurlyBracket) {
+            ret.attach(parse_brace_arg(input, pos)?);
+        }
+    }
+
+    Ok(ret.into())
+}
+
+fn parse_math(
+    input: &[Token],
+    pos: &mut usize,
+    end_marker: TokenType,
+) -> Result<NodePtr, Box<dyn Error>> {
+    let node_t: NodeType;
+
+    match end_marker {
+        TokenType::Dollar => {
+            node_t = NodeType::InlineMath;
+            if !poke(input, *pos, TokenType::Dollar) {
+                panic!("Expected Dollar when end_marker is dollar! Internal Bug!")
+            }
+        }
+        TokenType::DoubleDollar => {
+            node_t = NodeType::DisplayMath;
+            if !poke(input, *pos, TokenType::DoubleDollar) {
+                panic!("Expected Double Dollar when end_marker is double dollar! Internal Bug!")
+            }
+        }
+        _ => {
+            panic!("Expected Dollar or Double Dollar! Internal Bug");
+        }
+    }
+
+    *pos += 1; // we have parsed Dollar or Double Dollar
+    let initial_pos = *pos;
+
+    let mut ret = Node::new("", node_t);
+    // Find the next end marker
+    while *pos < input.len() && !poke(input, *pos, end_marker.clone()) {
+        *pos += 1;
+    }
+
+    let mut tmp_pos = 0;
+    let paragraph = parse_paragraph(&input[initial_pos..(*pos)], &mut tmp_pos)?;
+    ret.attach(paragraph);
+
+    if !poke(input, *pos, end_marker.clone()) {
+        panic!("Unmatched {:?}. Found {:?}", end_marker, input[*pos]);
+    } else {
+        *pos += 1;
+    }
+
+    Ok(ret.into())
+}
+
 // This is the main parse logic, as the whole latex file is a paragraph
 // We are implementing a simple LL(1) recursive parser
 fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
@@ -283,12 +350,8 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
         let cur_token = &input[*pos];
         match cur_token.token_type {
             TokenType::Word => {
-                let lexeme = &cur_token.lexeme.clone();
-
                 // Check if there is operator next
                 // Operators are ^ _
-                // TODO:: Implement Word SPACE* OPERATOR
-                // TODO: CHECK NEXT NONE SPACE TOKEN
                 if *pos + 1 < input.len() && input[*pos + 1].is_operator() {
                     let tmp = parse_operator(input, pos)?;
 
@@ -316,11 +379,6 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
                 paragraph.attach(Node::new(&cur_token.lexeme, NodeType::Comment).into());
                 *pos += 1;
             }
-            TokenType::Newline => {
-                // In case of two consecutive newline, return ret
-                // and let the parse function to handle
-                return Ok(ret.clone());
-            }
             TokenType::Backslash => {
                 // This is forced, deliberate, space
                 *pos += 1;
@@ -334,14 +392,25 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
                 paragraph.attach(Node::new(&cur_token.lexeme, NodeType::Operation).into());
                 *pos += 1;
             }
-            TokenType::RightCurlyBracket
-            | TokenType::Dollar
-            | TokenType::RightSquareBracket
-            | TokenType::DoubleDollar => return Ok(ret.clone()),
-
             TokenType::LeftCurlyBracket => {
                 // BraceArg U
                 paragraph.attach(parse_brace_arg(input, pos)?);
+            }
+            TokenType::LeftSquareBracket => {
+                // BraceArg U
+                paragraph.attach(parse_bracket_arg(input, pos)?);
+            }
+            TokenType::Command => {
+                paragraph.attach(parse_command(input, pos)?);
+            }
+            TokenType::Dollar => {
+                paragraph.attach(parse_math(input, pos, TokenType::Dollar)?);
+            }
+            TokenType::DoubleDollar => {
+                paragraph.attach(parse_math(input, pos, TokenType::DoubleDollar)?);
+            }
+            TokenType::RightCurlyBracket | TokenType::RightSquareBracket | TokenType::Newline => {
+                return Ok(ret.clone())
             }
             // TODO:
             _ => {
@@ -355,11 +424,47 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
 
 #[cfg(test)]
 mod test {
+
+    #[test]
+    fn parser_inline_math() {
+        use crate::latex_interpreter::*;
+        let input = r##"We have equation $a = b$"##;
+        let tokens = scanner::scan(input);
+        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        let ast = parser::parse(&tokens).unwrap();
+
+        println!("{}", ast.lock().unwrap());
+    }
+
+    #[test]
+    fn parser_display_math() {
+        use crate::latex_interpreter::*;
+        let input = r##"We have equation $$a = b$$"##;
+        let tokens = scanner::scan(input);
+        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        let ast = parser::parse(&tokens).unwrap();
+
+        println!("{}", ast.lock().unwrap());
+    }
+
+    #[test]
+    fn parser_command() {
+        use crate::latex_interpreter::*;
+        let input = r##"\a{aaa}[abb]{asb}"##;
+        let tokens = scanner::scan(input);
+        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        let ast = parser::parse(&tokens).unwrap();
+
+        println!("{}", ast.lock().unwrap());
+    }
+
     #[test]
     fn parser_try() {
         use crate::latex_interpreter::*;
-        let input = r##"Hello!     Junlu&! \
+        let input = r##"Hello!     Junlu&!
+    [aaa a]
 abc^def
+
 e^{i p} + 1 = 0
 Another paragraph!
 "##;

@@ -20,7 +20,7 @@ pub enum NodeType {
     BracketArg,
 
     InlineMath,
-    Displaymath,
+    DisplayMath,
 
     Envr, // environment
 
