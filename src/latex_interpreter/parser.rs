@@ -110,7 +110,7 @@ pub fn parse(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {
         if poke(input, pos, TokenType::Newline) {
             root.attach(paragraph);
             pos += 1;
-        } else if pos == input.len() {
+        } else if pos >= input.len() {
             root.attach(paragraph);
         }
 
@@ -178,7 +178,7 @@ fn parse_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dy
     let mut ret = Node::new("".into(), NodeType::BracketArg);
 
     if !poke(input, *pos, TokenType::LeftSquareBracket) {
-        panic!("Expected Left Curly Bracket!")
+        panic!("Expected Left Curly Bracket! Found {:?}", input[*pos]);
     }
     *pos += 1;
 
@@ -219,15 +219,19 @@ fn parse_brace_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
 // That is we are parsing things like a^b c_{aa}
 // children[0] is the first part of operation, children[1] is the second part
 //
-// Caveat
+// CAVEAT!!!
 //
 // if we have something like a^bb
 // then it shall be pares like a ^ b  b, (with a trailing b).
+// moreover, ab^2, shall be parsed like a b^2
+//
 // So one word token is broken down into two.
-// We can not modify input, so we pass Ok((_, true)), telling the function calling parse_operator
-// th handle the trailing word
-fn parse_operator(input: &[Token], pos: &mut usize) -> Result<(NodePtr, bool), Box<dyn Error>> {
-    let mut ret = Node::new("".into(), NodeType::Operation);
+// We can not modify input, so, instead, we return a vec of NodePtr, all of which shall be pushed.
+// into the callers' managed node's children
+// Of course, pos is incremented according to number of token parsed by this function
+fn parse_operator(input: &[Token], pos: &mut usize) -> Result<Vec<NodePtr>, Box<dyn Error>> {
+    let mut ret: Vec<NodePtr> = vec![];
+    let mut op_root = Node::new("".into(), NodeType::Operation);
 
     if !poke2vec(
         input,
@@ -238,37 +242,77 @@ fn parse_operator(input: &[Token], pos: &mut usize) -> Result<(NodePtr, bool), B
         panic!("Expected Word followed by Operator!");
     }
 
-    // The first children
-    ret.children
-        .push(Node::new(&input[*pos].lexeme, NodeType::Word).into());
-    ret.lexeme = (&input[*pos + 1].lexeme).into();
+    // Now, we have
+    // input = WORD   OP          ...
+    //         *pos   *pos + 1
+    op_root.lexeme = (&input[*pos + 1].lexeme).into();
+
+    // Check the lexeme of Word. as ab^2 shall be considered as a b^2
+    // In latex, a lone ^2 is valid
+    if input[*pos].lexeme.len() <= 1 {
+        op_root
+            .children
+            .push(Node::new(&input[*pos].lexeme, NodeType::Word).into());
+    } else {
+        // we are at the case of ab^2. Create new word a, append to ret. Create a new
+        // word with lexeme b and append to the child of op_root, as the first
+        // arg of operation
+        let pre_word_len = input[*pos].lexeme.len();
+        let pre_word = Node::new(&input[*pos].lexeme[0..(pre_word_len - 1)], NodeType::Word);
+
+        ret.push(pre_word.into());
+
+        op_root
+            .children
+            .push(Node::new(&input[*pos].lexeme[(pre_word_len - 1)..], NodeType::Word).into());
+    }
 
     *pos += 2;
+
     if *pos >= input.len() {
         panic!("Paring operator expected Work or braced arg afte the operator!");
     }
 
     match input[*pos].token_type {
         TokenType::LeftCurlyBracket => {
-            ret.children.push(parse_brace_arg(input, pos)?);
+            op_root.children.push(parse_brace_arg(input, pos)?);
+            ret.push(op_root.into());
         }
         TokenType::Word => {
-            if input[*pos].lexeme.len() == 0 {
-                warn!("Expected a lexeme after opeator!");
-            } else {
-                ret.children
-                    .push(Node::new(&input[*pos].lexeme[0..1], NodeType::Word).into());
+            let wordlen = input[*pos].lexeme.len();
 
-                // The first charater is parsed as the operant.
-                // Telling the caller of this function to handle the next word
-                // without the first char
-                return Ok((Arc::new(Mutex::new(ret)), true));
+            match wordlen {
+                0 => {
+                    // ^2 is valid, 2^ is not
+                    warn!("Expected a lexeme after opeator!");
+                }
+                1 => {
+                    op_root
+                        .children
+                        .push(Node::new(&input[*pos].lexeme, NodeType::Word).into());
+                    ret.push(op_root.into());
+                }
+                _ => {
+                    // we are in the case a^23, which shall be parsed as a^2 3
+                    op_root
+                        .children
+                        .push(Node::new(&input[*pos].lexeme[0..1], NodeType::Word).into());
+                    ret.push(op_root.into());
+                    let post_word = Node::new(&input[*pos].lexeme[1..], NodeType::Word);
+                    ret.push(post_word.into());
+                }
             }
+            *pos += 1;
         }
-        _ => {}
+        _ => {
+            panic!(
+                "Unexpected Token: {:?}. Expected Word or Braced Arg after operator.",
+                input[*pos].token_type
+            );
+        }
     }
 
-    Ok((Arc::new(Mutex::new(ret)), false))
+    Ok(ret)
 }
 
 fn parse_command(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
@@ -340,6 +384,63 @@ fn parse_math(
     Ok(ret.into())
 }
 
+fn parse_slash_open_bracket(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
+    let mut ret = Node::new("", NodeType::DisplayMath);
+
+    if !poke(input, *pos, TokenType::SlashOpenBracket) {
+        panic!("Internal Error! Expected SlashOpenBracket!")
+    }
+
+    *pos += 1;
+    ret.children.push(parse_paragraph(input, pos)?);
+
+    // TODO: ERROR HANDLING
+    if !poke(input, *pos, TokenType::SlashCloseBracket) {
+        panic!("Internal Error! Expected SlashCloseBracket!")
+    }
+    *pos += 1;
+
+    Ok(ret.into())
+}
+
+fn parse_envr(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
+
+    if !poke(input, *pos, TokenType::Command) || !input[*pos].is_begin_envr() {
+        panic!("Internal Error! Expected begin environment!")
+    }
+    // The environments are like 
+    // \begin{envr_name}
+    // \end{envr_name}
+
+    *pos += 1;
+
+    let envr_arg = parse_brace_arg(input, pos)?;
+    let envr_name: String = Node::get_string_content_recur_nodeptr(envr_arg.clone());
+
+    let mut ret = Node::new(&envr_name, NodeType::Envr);
+
+    ret.children.push(parse_paragraph(input, pos)?);
+
+    // TODO: ERROR HANDLING
+    if !poke(input, *pos, TokenType::Command) || !input[*pos].is_end_envr()  {
+        panic!("Internal Error! Expected End environment!")
+    }
+
+    *pos += 1;
+    // we are now at 
+    // \end{envr_name}
+    //      ^
+    // still need to parse the end brace arg
+    
+    let envr_end_arg = parse_brace_arg(input, pos)?;
+    let envr_end_name: String = Node::get_string_content_recur_nodeptr(envr_end_arg.clone());
+
+    if envr_end_name !=  envr_name{
+        panic!("Unmatched environment! Expected {}, found {}", envr_name, envr_end_name);
+    }
+
+    Ok(ret.into())
+}
 // This is the main parse logic, as the whole latex file is a paragraph
 // We are implementing a simple LL(1) recursive parser
 fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
@@ -354,19 +455,8 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
                 // Operators are ^ _
                 if *pos + 1 < input.len() && input[*pos + 1].is_operator() {
                     let tmp = parse_operator(input, pos)?;
-
-                    paragraph.attach(tmp.0);
-
-                    // This means input[*pos] is a word. The first char is used
-                    // as the operant.
-                    // We need to handle it now, and do not count the first
-                    // char twice.
-                    if tmp.1 {
-                        if input[*pos].lexeme.len() > 1 {
-                            paragraph
-                                .attach(Node::new(&input[*pos].lexeme[1..], NodeType::Word).into());
-                        }
-                        *pos += 1;
+                    for i in tmp.iter() {
+                        paragraph.attach(i.clone());
                     }
                 } else {
                     if cur_token.lexeme.len() > 0 {
@@ -384,6 +474,11 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
                 *pos += 1;
                 paragraph.attach(Node::new(" ", NodeType::Word).into());
             }
+            TokenType::DoubleBackslash => {
+                // Line break but not paragraph break
+                *pos += 1;
+                paragraph.attach(Node::new("\n", NodeType::Word).into());
+            }
             TokenType::Ampersand => {
                 paragraph.attach(Node::new(&cur_token.lexeme, NodeType::Ampersand).into());
                 *pos += 1;
@@ -400,18 +495,29 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
                 // BraceArg U
                 paragraph.attach(parse_bracket_arg(input, pos)?);
             }
-            TokenType::Command => {
-                paragraph.attach(parse_command(input, pos)?);
-            }
             TokenType::Dollar => {
                 paragraph.attach(parse_math(input, pos, TokenType::Dollar)?);
             }
             TokenType::DoubleDollar => {
                 paragraph.attach(parse_math(input, pos, TokenType::DoubleDollar)?);
             }
-            TokenType::RightCurlyBracket | TokenType::RightSquareBracket | TokenType::Newline => {
-                return Ok(ret.clone())
+            TokenType::SlashOpenBracket => {
+                paragraph.attach(parse_slash_open_bracket(input, pos)?);
             }
+            TokenType::Command => { 
+                // command could be environment
+                if input[*pos].is_begin_envr() {
+                    paragraph.attach(parse_envr(input, pos)?);
+                } else if input[*pos].is_end_envr() {
+                    return Ok(ret.clone());
+                } else {
+                    paragraph.attach(parse_command(input, pos)?);
+                }
+            }
+            TokenType::RightCurlyBracket  // end of brace args 
+            | TokenType::RightSquareBracket  // end of bracket args 
+            | TokenType::SlashCloseBracket  // end of display math
+            | TokenType::Newline => return Ok(ret.clone()),
             // TODO:
             _ => {
                 panic!("Unexpected TokenType: {:?}", cur_token.token_type)
@@ -425,10 +531,59 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
 #[cfg(test)]
 mod test {
 
+    use crate::latex_interpreter::*;
+    #[test]
+    fn string_content_recur() {
+        let input = r##"aaabbb"##;
+        let tokens = scanner::scan(input);
+        let ast = parser::parse(&tokens).unwrap();
+        println!("{}", ast.lock().unwrap());
+        let ast = ast.lock().unwrap();
+        assert_eq!(input, ast.get_string_content_recur());
+    }
+
+    #[test]
+    fn parser_envr() {
+        let input = r##"\begin{document}
+This is document
+\begin{eq}
+e=mc^2
+    \begin{bmatrix}
+     % We have an empty matrix
+    \end{bmatrix}
+\end{eq}
+Hope there is success!
+\end{document}"##;
+        let tokens = scanner::scan(input);
+        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        let ast = parser::parse(&tokens).unwrap();
+
+        println!("{}", ast.lock().unwrap());
+    }
+
+    #[test]
+    fn parser_slash_open_bracket() {
+        let input = r##"\[e = mc^2\]"##;
+        let tokens = scanner::scan(input);
+        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        let ast = parser::parse(&tokens).unwrap();
+
+        println!("{}", ast.lock().unwrap());
+    }
+
+    #[test]
+    fn parser_operator() {
+        let input = r##"e^{aaa}"##;
+        let tokens = scanner::scan(input);
+        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        let ast = parser::parse(&tokens).unwrap();
+
+        println!("{}", ast.lock().unwrap());
+    }
+
     #[test]
     fn parser_inline_math() {
-        use crate::latex_interpreter::*;
-        let input = r##"We have equation $a = b$"##;
+        let input = r##"We have equation $e=mc^2$"##;
         let tokens = scanner::scan(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
@@ -438,7 +593,6 @@ mod test {
 
     #[test]
     fn parser_display_math() {
-        use crate::latex_interpreter::*;
         let input = r##"We have equation $$a = b$$"##;
         let tokens = scanner::scan(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
@@ -449,7 +603,6 @@ mod test {
 
     #[test]
     fn parser_command() {
-        use crate::latex_interpreter::*;
         let input = r##"\a{aaa}[abb]{asb}"##;
         let tokens = scanner::scan(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
@@ -460,7 +613,6 @@ mod test {
 
     #[test]
     fn parser_try() {
-        use crate::latex_interpreter::*;
         let input = r##"Hello!     Junlu&!
     [aaa a]
 abc^def

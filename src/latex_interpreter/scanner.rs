@@ -88,6 +88,14 @@ impl Token {
     pub fn is_operator(&self) -> bool {
         self.token_type == TokenType::Uptick || self.token_type == TokenType::Underline
     }
+
+    pub fn is_begin_envr(&self) -> bool {
+        self.token_type == TokenType::Command && self.lexeme == "begin"
+    }
+
+    pub fn is_end_envr(&self) -> bool {
+        self.token_type == TokenType::Command && self.lexeme == "end"
+    }
 }
 
 impl Display for Token {

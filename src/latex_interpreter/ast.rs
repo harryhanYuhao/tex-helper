@@ -6,14 +6,14 @@ pub type NodePtr = Arc<Mutex<Node>>;
 
 #[derive(Debug)]
 pub enum NodeType {
-    Passage,   // A passage consisiste of many paragraphs
+    Passage, // A passage consisiste of many paragraphs
     Paragraph,
     Word,
-    Operation,  // ^ _
+    Operation, // ^ _
     Ampersand, // & are used for alignment in Latex
     Space,
-    DoubleBackSlash, //  \\ 
-    LineBreak,  // /n  A single line break is considered as a space
+    DoubleBackSlash, //  \\
+    LineBreak,       // /n  A single line break is considered as a space
 
     Command,
     BraceArg, // {para}
@@ -69,6 +69,36 @@ impl Node {
             node_type: NodeType::Paragraph,
             children: vec![],
         }))
+    }
+
+    pub fn lexeme_from_nodeptr(node: NodePtr) -> String {
+        let node = node.lock().unwrap();
+        node.lexeme.to_string()
+    }
+
+    pub fn get_string_content_recur(&self) -> String {
+        let mut ret: String = String::new();
+        ret.push_str(&self.lexeme);
+
+        for i in self.children.iter() {
+            let tmp = i.lock().unwrap();
+            ret.push_str(&tmp.get_string_content_recur());
+        }
+
+        ret
+    }
+
+    pub fn get_string_content_recur_nodeptr(node: NodePtr) -> String {
+        let node = node.lock().unwrap();
+        let mut ret: String = String::new();
+        ret.push_str(&node.lexeme);
+
+        for i in node.children.iter() {
+            let tmp = i.lock().unwrap();
+            ret.push_str(&tmp.get_string_content_recur());
+        }
+
+        ret
     }
 
     pub fn dummy() -> Node {
