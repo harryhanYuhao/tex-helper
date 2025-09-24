@@ -16,8 +16,8 @@ pub enum NodeType {
     LineBreak,       // /n  A single line break is considered as a space
 
     Command,
-    BraceArg, // {para}
-    BracketArg,
+    CurlyBracketArg, // {para}
+    SquareBracketArg,
 
     InlineMath,
     DisplayMath,

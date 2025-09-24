@@ -34,7 +34,6 @@ fn init() {
     // init the config with some system settings
     // i.e., finding latex binary, etc
     // the configuration will be further updated by the cli
-    // TODO: config init is likely redundant, remove it.
     config.init();
 }
 

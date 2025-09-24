@@ -1,7 +1,6 @@
 # Tex-helper
 
-Many chores are neccessary when writing latex such as creating a long list of `.gitignore`, prepending a long preamble, deleteing all the auxillary files generated when compiling the latex, etc. 
-This tool helps you manage these.
+Latex-helper is a cli program which provides some convenient utilities for writing latex. 
 
 ## Usage
 
@@ -32,10 +31,6 @@ Check out the help message for the main command and each subcommand for more det
 tex-helper -h  # general help
 tex-helper init -h  # help for init subcommand
 ```
-
-## Todo
-
-- add compatibility for Windows (So far only compatible with Unix)
 
 ## Other tex productivity tools
 

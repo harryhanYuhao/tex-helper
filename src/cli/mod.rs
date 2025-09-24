@@ -25,8 +25,9 @@ enum Commands {
         ]
         doc_mode: String,
     },
-    /// Compile the latex files
-    Compile { targets: Vec<String> },
+
+    // Compile the latex files
+    // Compile { targets: Vec<String> },
 }
 
 pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,13 +43,13 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
             init::init_tex_project(package_name, init_args)?;
             info!("Initialized latex package {package_name} with document mode {init_args}");
         }
-        Commands::Compile { targets } => {
-            // TODO: implement compile
-            error!("Compiling is yet to be implemented.");
-            for i in targets {
-                compile::compile(i)?;
-            }
-        }
+        // Commands::Compile { targets } => {
+        //     // TODO: implement compile
+        //     error!("Compiling is yet to be implemented.");
+        //     for i in targets {
+        //         compile::compile(i)?;
+        //     }
+        // }
     }
     Ok(())
 }

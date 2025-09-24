@@ -174,8 +174,8 @@ pub fn poke2vec(
     false
 }
 
-fn parse_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
-    let mut ret = Node::new("".into(), NodeType::BracketArg);
+fn parse_square_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
+    let mut ret = Node::new("".into(), NodeType::SquareBracketArg);
 
     if !poke(input, *pos, TokenType::LeftSquareBracket) {
         panic!("Expected Left Curly Bracket! Found {:?}", input[*pos]);
@@ -193,8 +193,8 @@ fn parse_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dy
 
     Ok(ret.into())
 }
-fn parse_brace_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
-    let mut ret = Node::new("".into(), NodeType::BraceArg);
+fn parse_curly_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
+    let mut ret = Node::new("".into(), NodeType::CurlyBracketArg);
 
     if !poke(input, *pos, TokenType::LeftCurlyBracket) {
         panic!("Expected Left Curly Bracket!")
@@ -275,7 +275,7 @@ fn parse_operator(input: &[Token], pos: &mut usize) -> Result<Vec<NodePtr>, Box<
 
     match input[*pos].token_type {
         TokenType::LeftCurlyBracket => {
-            op_root.children.push(parse_brace_arg(input, pos)?);
+            op_root.children.push(parse_curly_bracket_arg(input, pos)?);
             ret.push(op_root.into());
         }
         TokenType::Word => {
@@ -327,10 +327,10 @@ fn parse_command(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Er
         || poke(input, *pos, TokenType::LeftCurlyBracket)
     {
         if poke(input, *pos, TokenType::LeftSquareBracket) {
-            ret.attach(parse_bracket_arg(input, pos)?);
+            ret.attach(parse_square_bracket_arg(input, pos)?);
         }
         if poke(input, *pos, TokenType::LeftCurlyBracket) {
-            ret.attach(parse_brace_arg(input, pos)?);
+            ret.attach(parse_curly_bracket_arg(input, pos)?);
         }
     }
 
@@ -414,7 +414,7 @@ fn parse_envr(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error
 
     *pos += 1;
 
-    let envr_arg = parse_brace_arg(input, pos)?;
+    let envr_arg = parse_curly_bracket_arg(input, pos)?;
     let envr_name: String = Node::get_string_content_recur_nodeptr(envr_arg.clone());
 
     let mut ret = Node::new(&envr_name, NodeType::Envr);
@@ -432,7 +432,7 @@ fn parse_envr(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error
     //      ^
     // still need to parse the end brace arg
     
-    let envr_end_arg = parse_brace_arg(input, pos)?;
+    let envr_end_arg = parse_curly_bracket_arg(input, pos)?;
     let envr_end_name: String = Node::get_string_content_recur_nodeptr(envr_end_arg.clone());
 
     if envr_end_name !=  envr_name{
@@ -489,11 +489,11 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
             }
             TokenType::LeftCurlyBracket => {
                 // BraceArg U
-                paragraph.attach(parse_brace_arg(input, pos)?);
+                paragraph.attach(parse_curly_bracket_arg(input, pos)?);
             }
             TokenType::LeftSquareBracket => {
                 // BraceArg U
-                paragraph.attach(parse_bracket_arg(input, pos)?);
+                paragraph.attach(parse_square_bracket_arg(input, pos)?);
             }
             TokenType::Dollar => {
                 paragraph.attach(parse_math(input, pos, TokenType::Dollar)?);
