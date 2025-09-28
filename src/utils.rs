@@ -1,5 +1,9 @@
+use crate::config;
 use std::error::Error;
+use std::path::PathBuf;
 use std::process::Command;
+use std::{fs, io};
+use std::path::Path;
 
 fn command_exists(command: &str) -> bool {
     Command::new("which")
@@ -20,15 +24,13 @@ pub fn which_latex_binary() -> Option<String> {
     None
 }
 
-pub(crate) fn legal_characters_for_dir_name(instr: &str) -> Vec<char> {
-    let illegal_c = ['/', '\\'];
-    instr.chars().filter(|&c| illegal_c.contains(&c)).collect()
-}
-
-// This function assumes the file does not exist or is empty 
+// This function assumes the file does not exist or is empty
 // create the file if it does not exist
 // wipes the file and writes content to it if it does
-pub(crate) fn overwrite_to_file(path: &str, content: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn overwrite_to_file_path_buf(
+    path: &PathBuf,
+    content: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     use std::fs::File;
     use std::io::prelude::*;
 
@@ -42,7 +44,27 @@ pub(crate) fn get_config_dir() -> Result<String, Box<dyn Error>> {
     let home_dir = env::var("HOME")?;
     Ok(format!("{}/.config/tex-helper", home_dir))
 }
- 
-#[cfg(test)]
-mod test{
+
+pub(crate) fn get_main_file_path(package_name: &str) -> PathBuf {
+    let main_file_name = config::get_main_file_name();
+    PathBuf::from(package_name).join(main_file_name)
 }
+
+pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    fs::create_dir_all(&dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            let created = dst.as_ref().join(entry.file_name());
+            debug!("Creating file: {}", created.display());
+            fs::copy(entry.path(), &created)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod test {}

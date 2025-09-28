@@ -1,43 +1,18 @@
-// This file contains the `init` command logic
-// this file is not the initialisation of the crate
+//! This file contains the `init` command logic
+//! This file is not the initialisation of the crate
 
 mod default_assets;
 
-use crate::CONFIG;
-
+use crate::config;
 use crate::utils;
-use crate::utils::legal_characters_for_dir_name;
+use std::fs;
+// use crate::utils::{self, illegal_characters_for_dir_name};
+
 use std::error::Error;
 use std::fs::create_dir_all;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-// auxiliary function: shall only be called wihthin the crate with simple logics
-// TODO: Add support for windows
-fn file_path_from_dir_and_filename(directory: &str, filename: &str) -> String {
-    if directory.len() == 0 {
-        panic!("file_path_string() called with directory string empty!");
-    }
-    if filename.len() == 0 {
-        panic!("file_path_string() called with filename string empty!");
-    }
-    let last_char = directory.chars().last().unwrap();
-    if last_char == '/' {
-        return format!("{}{}", directory, filename);
-    }
-    format!("{}/{}", directory, filename)
-}
-
-// return Ok(file_path), file_path is the path for the main file
-fn create_dir_and_main(package_name: &str) -> Result<String, Box<dyn Error>> {
-    if legal_characters_for_dir_name(package_name).len() != 0 {
-        return Err(format!(
-            "{} is an illegal name for directory as it contains {:?}",
-            package_name,
-            legal_characters_for_dir_name(package_name)
-        )
-        .into());
-    }
-
+fn create_new_dir(package_name: &str) -> Result<(), Box<dyn Error>> {
     if Path::new(&package_name).exists() {
         return Err(format!(
             "{} already exists. Use a different package name.",
@@ -48,38 +23,111 @@ fn create_dir_and_main(package_name: &str) -> Result<String, Box<dyn Error>> {
 
     create_dir_all(package_name)?;
 
-    let config = CONFIG.lock().unwrap();
-    let main_file_name = config.get_main_file_name();
-    let main_file_path = format!("{}/{}", package_name, main_file_name);
-
-    info!("Created {main_file_path}");
-    Ok(main_file_path)
-}
-
-fn create_gitignore(package_name: &str) -> Result<(), Box<dyn Error>> {
-    let file_path = file_path_from_dir_and_filename(package_name, ".gitignore");
-    utils::overwrite_to_file(&file_path, &default_assets::default_gitignore())?;
-
-    debug!("Created {file_path}");
     Ok(())
 }
 
-fn create_reference_template(package_name: &str) -> Result<(), Box<dyn Error>> {
-    let file_path = file_path_from_dir_and_filename(package_name, "references.bib");
-    utils::overwrite_to_file(&file_path, &default_assets::default_reference_bib())?;
+fn create_file_in_project_dir(
+    package_name: &str,
+    file_name: &str,
+    content: &str,
+) -> Result<(), Box<dyn Error>> {
+    let file_path = PathBuf::from(package_name).join(file_name);
+    utils::overwrite_to_file_path_buf(&file_path, content)?;
 
-    debug!("Created {file_path}");
+    debug!("Created {}", file_path.display());
+
     Ok(())
 }
 
 pub(super) fn init_tex_project(package_name: &str, doc_mode: &str) -> Result<(), Box<dyn Error>> {
-    let main_file_path = create_dir_and_main(package_name)?;
-    create_gitignore(package_name)?;
-    create_reference_template(package_name)?;
+    create_new_dir(package_name)?;
 
-    let main_content = default_assets::get_single_page_preamble(doc_mode)?;
-    utils::overwrite_to_file(&main_file_path, &main_content)?;
-    debug!("Created {main_file_path}");
+    create_file_in_project_dir(package_name, ".gitignore", &default_assets::gitignore())?;
+    create_file_in_project_dir(
+        package_name,
+        "references.bib",
+        &default_assets::reference_bib(),
+    )?;
+
+    create_single_file_preamble_content(package_name, doc_mode)?;
 
     Ok(())
+}
+
+fn create_single_file_preamble_content(
+    package_name: &str,
+    doc_mode: &str,
+) -> Result<(), Box<dyn Error>> {
+    let main_file_path = utils::get_main_file_path(package_name);
+
+    let custom_file_path = custom_template_exists(doc_mode)?;
+
+    if custom_file_path.is_empty() {
+        // no custom template, create defaults
+        create_main_with_defaults(package_name, doc_mode)?;
+    } else {
+        // use custom template
+        if Path::new(&custom_file_path).is_dir() {
+            info!("Using custom directory template at {custom_file_path}");
+            utils::copy_dir_all(&custom_file_path, package_name)?;
+        } else {
+            info!("Using custom file template at {custom_file_path}");
+            let content = fs::read_to_string(&custom_file_path)?;
+            utils::overwrite_to_file_path_buf(&main_file_path, &content)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn create_main_with_defaults(package_name: &str, doc_mode: &str) -> Result<(), Box<dyn Error>> {
+    let main_file_name = config::get_main_file_name();
+
+    let ret = default_assets::default_preable(doc_mode);
+    if ret.is_empty() {
+        info!("Document mode {doc_mode} not recognized, using article as default.");
+        create_file_in_project_dir(
+            package_name,
+            &main_file_name,
+            &default_assets::default_preable("article"),
+        )?;
+    } else {
+        create_file_in_project_dir(package_name, &main_file_name, &ret)?;
+    }
+    Ok(())
+}
+
+// This function is the default_asset_
+fn create_structured_preamble_content(
+    package_name: &str,
+    doc_mode: &str,
+) -> Result<(), Box<dyn Error>> {
+    Ok(())
+}
+
+/// check if custom template exists in config dir
+fn custom_template_exists(template_name: &str) -> Result<String, Box<dyn Error>> {
+    let fp = format!("{}/{}", utils::get_config_dir()?, template_name);
+    let fp_tex = format!("{}.tex", &fp);
+
+    if fs::exists(&fp_tex)? {
+        return Ok(fp_tex);
+    } else if fs::exists(&fp)? {
+        return Ok(fp);
+    }
+    Ok(String::new())
+}
+
+pub(super) fn get_single_page_preamble(doc_mode: &str) -> Result<String, Box<dyn Error>> {
+    let custom_file_path = custom_template_exists(doc_mode)?;
+    if custom_file_path.is_empty() {
+        let ret = default_assets::default_preable(doc_mode);
+        if ret.is_empty() {
+            info!("Document mode {doc_mode} not recognized, using article as default.");
+            return Ok(default_assets::default_preable("article"));
+        }
+        return Ok(default_assets::default_preable(doc_mode));
+    }
+    info!("Using custom {doc_mode} template at {custom_file_path}");
+    return Ok(fs::read_to_string(custom_file_path)?);
 }

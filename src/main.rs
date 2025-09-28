@@ -18,18 +18,6 @@ lazy_static! {
 }
 
 fn init() {
-    use simplelog::{
-        ColorChoice, CombinedLogger, Config as LogConfig, LevelFilter, TermLogger, TerminalMode,
-    };
-
-    CombinedLogger::init(vec![TermLogger::new(
-        LevelFilter::Info,
-        LogConfig::default(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    )])
-    .unwrap();
-
     let mut config = CONFIG.lock().unwrap();
     // init the config with some system settings
     // i.e., finding latex binary, etc

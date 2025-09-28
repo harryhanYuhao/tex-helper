@@ -132,34 +132,8 @@ pub(super) fn default_preable(doc_mode: &str) -> String {
     }
 }
 
-fn custom_template_exists(template_name: &str) -> Result<String, Box<dyn Error>> {
-    let fp = format!("{}/{}", utils::get_config_dir()?, template_name);
-    let fp_tex = format!("{}.tex", &fp);
 
-    if fs::exists(&fp_tex)? {
-        return Ok(fp_tex);
-    } else if fs::exists(&fp)? {
-        return Ok(fp);
-    }
-    Ok(String::new())
-}
-
-pub(super) fn get_single_page_preamble(doc_mode: &str) -> Result<String, Box<dyn Error>> {
-    let custom_file_path = custom_template_exists(doc_mode)?;
-    if custom_file_path.is_empty() {
-        let ret = default_preable(doc_mode);
-        if ret.is_empty() {
-            info!("Document mode {doc_mode} not recognized, using article as default.");
-            return Ok(default_preable("article"));
-        }
-        return Ok(default_preable(doc_mode));
-    } else {
-        info!("Using custom {doc_mode} template at {custom_file_path}");
-        return Ok(fs::read_to_string(custom_file_path)?);
-    }
-}
-
-pub(super) fn default_reference_bib() -> String {
+pub(super) fn reference_bib() -> String {
     String::from(
         r##"% @inproceedings{lesk:1977,
 %   title={Computer Typesetting of Technical Journals on {UNIX}},
@@ -197,7 +171,7 @@ pub(super) fn default_reference_bib() -> String {
     ) // End of String::from
 }
 
-pub(super) fn default_gitignore() -> String {
+pub(super) fn gitignore() -> String {
     String::from(
         r##"*.pdf
 *.txt

@@ -3,10 +3,18 @@ mod init;
 
 use clap::{Parser, Subcommand};
 
+use simplelog::{
+    ColorChoice, CombinedLogger, Config as LogConfig, LevelFilter, TermLogger, TerminalMode,
+};
+
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)] // read from cargo.toml
 #[command(propagate_version = true)]
 struct Cli {
+    /// More detailed logs
+    #[arg(short, long)]
+    debug: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -25,31 +33,48 @@ enum Commands {
         ]
         doc_mode: String,
     },
-
     // Compile the latex files
     // Compile { targets: Vec<String> },
+}
+
+/// Init logger according to debug flag
+fn init_logger(debug: bool) {
+    let log_filter = if debug {
+        LevelFilter::Trace
+    } else {
+        LevelFilter::Info
+    };
+
+    CombinedLogger::init(vec![TermLogger::new(
+        log_filter,
+        LogConfig::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )])
+    .unwrap();
 }
 
 pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
+    init_logger(cli.debug);
+
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
         Commands::Init {
-            doc_mode: init_args,
+            doc_mode: doc_mod,
             package_name,
         } => {
-            init::init_tex_project(package_name, init_args)?;
-            info!("Initialized latex package {package_name} with document mode {init_args}");
-        }
-        // Commands::Compile { targets } => {
-        //     // TODO: implement compile
-        //     error!("Compiling is yet to be implemented.");
-        //     for i in targets {
-        //         compile::compile(i)?;
-        //     }
-        // }
+            init::init_tex_project(package_name, doc_mod)?;
+            info!("Initialized LaTeX package `{package_name}` with document mode `{doc_mod}`");
+        } // Commands::Compile { targets } => {
+          //     // TODO: implement compile
+          //     error!("Compiling is yet to be implemented.");
+          //     for i in targets {
+          //         compile::compile(i)?;
+          //     }
+          // }
     }
     Ok(())
 }
