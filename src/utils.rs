@@ -39,6 +39,7 @@ pub(crate) fn overwrite_to_file_path_buf(
     Ok(())
 }
 
+// TODO: add support for Windows
 pub(crate) fn get_config_dir() -> Result<String, Box<dyn Error>> {
     use std::env;
     let home_dir = env::var("HOME")?;

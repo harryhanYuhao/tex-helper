@@ -1,38 +1,41 @@
+//! This is a naive LL(2) recursive parser for Latex
+//! The parser parse vec of token types in AST(abstract syntax tree)
+//! The parser will delete and arrange tokens, but will not modify the lexeme of any token
+//!
+//! This is the parse grammar
+//! Note * denotes 0 or more, + denotes 1 or more
+//!
+//! Passage -> Passage Paragraph \n\n+ (two or more consective line breaks)
+//!
+//! Paragraph -> Paragraph E
+//!
+//! E -> Word
+//! E -> Commant
+//! E -> LoneCommand   // Commands without args
+//! E -> SPACE* ( space are simple ignored)
+//!
+//! Space -> \n  // a single line break is a space
+//! Space -> ' ' | '\t'+  // one or more consecutive space (or tabs) is considered as a single space
+//!
+//!
+//! E -> Operation
+//! Operation -> Word Operator Word
+//! Operation -> Word Operator BraceArg
+//! IMPORTANT: not parsing of operation has a complication that ab^12 shall be parsed as a b^1 2.
+//! This is taken care of in parse_operator function. 
+//! The description of this grammar however, can not be expressed in BNF
+//!
+//! E -> CommandWithArg
+//! CommandWithArg -> LoneCommand (BraceArg | BracketArg)+
+//! BraceArg -> {Paragraph}
+//! BracketArg -> [Paragraph]
+
 use super::ast::{Node, NodePtr, NodeType};
 use super::scanner::{scan, Token, TokenType};
-use std::convert;
 use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-/// This is a naive LL(2) recursive parser for Latex
-/// The parser parse vec of token types in AST(abstract syntax tree)
-/// The parser will delete and arrange tokens, but will not modify the lexeme of any token
-///
-/// This is the parse grammar
-/// Note * denotes 0 or more, + denotes 1 or more
-///
-/// Passage -> Passage Paragraph \n\n+ (two or more consective line breaks)
-///
-/// Paragraph -> Paragraph E
-///
-/// E -> Word
-/// E -> Commant
-/// E -> LoneCommand   // Commands without args
-/// E -> SPACE* ( space are simple ignored)
-///
-/// Space -> \n  // a single line break is a space
-/// Space -> ' ' | '\t'+  // one or more consecutive space (or tabs) is considered as a single space
-///
-///
-/// E -> Operation
-/// Operation -> Word Operator Word
-/// Operation -> Word Operator BraceArg
-///
-/// E -> CommandWithArg
-/// CommandWithArg -> LoneCommand (BraceArg | BracketArg)+
-/// BraceArg -> {Paragraph}
-/// BracketArg -> [Paragraph]
 
 #[derive(Debug)]
 enum ErrorType {
@@ -193,6 +196,7 @@ fn parse_square_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr,
 
     Ok(ret.into())
 }
+
 fn parse_curly_bracket_arg(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Error>> {
     let mut ret = Node::new("".into(), NodeType::CurlyBracketArg);
 
@@ -337,6 +341,9 @@ fn parse_command(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn Er
     Ok(ret.into())
 }
 
+/// Parse paragraph calls parse_math when it sees $ or $$
+/// since we are parsing recursively, we need to know the where end marker is
+/// Here we adopted a naive approach. 
 fn parse_math(
     input: &[Token],
     pos: &mut usize,
@@ -361,25 +368,34 @@ fn parse_math(
             panic!("Expected Dollar or Double Dollar! Internal Bug");
         }
     }
+    let mut ret = Node::new("", node_t);
 
     *pos += 1; // we have parsed Dollar or Double Dollar
     let initial_pos = *pos;
 
-    let mut ret = Node::new("", node_t);
     // Find the next end marker
     while *pos < input.len() && !poke(input, *pos, end_marker.clone()) {
         *pos += 1;
     }
 
+    // We have two cases here 
+    // 1. end marker is found
+    // $ ..... $ ..
+    //         ^ (*pos is here)
+    // 2. END is reached without finding end marker: error handling
+    // $ ..... $ EOF
+    //           ^ (*pos is here)
+    // TODO: error handling
+    if *pos == input.len() {
+        panic!("Unmatched {:?}", end_marker.clone());
+    }
+
     let mut tmp_pos = 0;
     let paragraph = parse_paragraph(&input[initial_pos..(*pos)], &mut tmp_pos)?;
+
     ret.attach(paragraph);
 
-    if !poke(input, *pos, end_marker.clone()) {
-        panic!("Unmatched {:?}. Found {:?}", end_marker, input[*pos]);
-    } else {
-        *pos += 1;
-    }
+    *pos += 1;
 
     Ok(ret.into())
 }
@@ -518,8 +534,8 @@ fn parse_paragraph(input: &[Token], pos: &mut usize) -> Result<NodePtr, Box<dyn 
             | TokenType::RightSquareBracket  // end of bracket args 
             | TokenType::SlashCloseBracket  // end of display math
             | TokenType::Newline => return Ok(ret.clone()),
-            // TODO:
             _ => {
+                // TODO: error handling
                 panic!("Unexpected TokenType: {:?}", cur_token.token_type)
             }
         }

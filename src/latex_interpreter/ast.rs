@@ -6,14 +6,12 @@ pub type NodePtr = Arc<Mutex<Node>>;
 
 #[derive(Debug)]
 pub enum NodeType {
-    Passage, // A passage consisiste of many paragraphs
-    Paragraph,
+    Passage, // A passage consisists of many paragraphs
+    Paragraph, // A paragraph consists of many Words, operations, etc
     Word,
-    Operation, // ^ _
+    Operation, // parsing a^b a_c
     Ampersand, // & are used for alignment in Latex
-    Space,
     DoubleBackSlash, //  \\
-    LineBreak,       // /n  A single line break is considered as a space
 
     Command,
     CurlyBracketArg, // {para}
@@ -157,6 +155,7 @@ impl fmt::Display for Node {
 
             ret
         }
+
         let mut dis = String::new();
         let vec_str = aux(self);
         for i in 0..vec_str.len() {

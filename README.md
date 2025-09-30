@@ -17,8 +17,12 @@ The `<project-name>` field is required.
 All files will be created in `<project-name>` directory.
 
 Sample docs mode includes `article`, `report`, `book`, and `letter`. 
+
 You can create a file named `article.tex` in the `~/.config/tex-helper` directory to overwrite default preamble for `article` mode.
-In fact, any custom doc-mode can be created, by simple creating a file name `customdoc.tex` in the `~/.config/tex-helper` directory, and initialising the project with `tex-helper init --doc-mode=customdoc <projectname>`.
+In fact, any custom doc-mode can be created, by simple creating a file name `customdoc.tex` or `customdoc` in the `~/.config/tex-helper` directory, and initialising the project with `tex-helper init --doc-mode=customdoc <projectname>`.
+
+If `~/.config/tex-helper/<doc-mode>` is a directory, 
+`tex-helper init --doc-mode=customdoc <projectname>` will copy all files in it to `<projectname>` directory recursively. 
 
 More customisation options are yet to come.
 
