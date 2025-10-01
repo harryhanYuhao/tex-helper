@@ -1,9 +1,9 @@
 /// A custom scanner for Markdown
 ///
-/// Scan input a &str and output a Vec of Tokens. 
+/// Scan input a &str and output a Vec of Tokens.
 /// Tokens, for the most parts, are scanned in the obvious way: all speical
-/// characters (including newline and space) have their own token types. 
-/// 
+/// characters (including newline and space) have their own token types.
+///
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Token {
     token_type: TokenType,
@@ -20,11 +20,11 @@ pub enum TokenType {
     Underline,         // _
     LeftCurlyBracket,  // {
     RightCurlyBracket, // }
-                       
-    Star,              // *
-    Slash,         // -
-    Section(u8),   // # or ## 
-    Indent(u8),    //
+
+    Star,        // *
+    Slash,       // -
+    Section(u8), // # or ##
+    Indent(u8),  //
 
     // Backslash is almost never used alone. When appear by itself, it create space in text mode
     Backslash, // \
@@ -85,7 +85,9 @@ pub fn scan(source: &str) -> Vec<Token> {
                 let end_of_line = index_to_end_of_cur_line(&chars, i);
                 ret.push(Token::new(TokenType::Space, String::new()));
 
-                if is_beginning_of_line(&chars, i) || end_of_line == chars.len() - 1 {
+                if is_beginning_of_line(&chars, i)
+                    || end_of_line == chars.len() - 1
+                {
                     // if the comment is at the beginning of a line, ignore the
                     // last new line character
                     //
@@ -115,7 +117,10 @@ pub fn scan(source: &str) -> Vec<Token> {
                 if i + 1 >= length {
                     ret.push(Token::new(TokenType::Backslash, "\\".into()));
                 } else if chars[i + 1] == '\\' {
-                    ret.push(Token::new(TokenType::DoubleBackslash, String::new()));
+                    ret.push(Token::new(
+                        TokenType::DoubleBackslash,
+                        String::new(),
+                    ));
                     i += 1;
                 } else if chars[i + 1] == '#'
                     || chars[i + 1] == '$'
@@ -128,16 +133,25 @@ pub fn scan(source: &str) -> Vec<Token> {
                     || chars[i + 1] == '~'
                     || chars[i + 1] == ' '
                 {
-                    ret.push(Token::new(TokenType::EscapedChar, chars[i + 1].into()));
+                    ret.push(Token::new(
+                        TokenType::EscapedChar,
+                        chars[i + 1].into(),
+                    ));
                     i += 1;
                 } else if chars[i + 1] == '\n' {
                     ret.push(Token::new(TokenType::Backslash, "\\".into()));
                     // note we do not increase i+1 here.
                 } else if chars[i + 1] == '[' {
-                    ret.push(Token::new(TokenType::SlashOpenBracket, "\\[".into()));
+                    ret.push(Token::new(
+                        TokenType::SlashOpenBracket,
+                        "\\[".into(),
+                    ));
                     i += 1;
                 } else if chars[i + 1] == ']' {
-                    ret.push(Token::new(TokenType::SlashCloseBracket, "\\]".into()));
+                    ret.push(Token::new(
+                        TokenType::SlashCloseBracket,
+                        "\\]".into(),
+                    ));
                     i += 1;
                 } else if chars[i + 1].is_alphabetic() {
                     let start = i + 1;
@@ -163,7 +177,9 @@ pub fn scan(source: &str) -> Vec<Token> {
                 if is_beginning_of_line(&chars, i) {
                     //
                 } else {
-                    while i + 1 < length && (chars[i + 1] == ' ' || chars[i + 1] == '\t') {
+                    while i + 1 < length
+                        && (chars[i + 1] == ' ' || chars[i + 1] == '\t')
+                    {
                         i += 1;
                     }
                     ret.push(Token::new(TokenType::Space, String::new()));
@@ -177,7 +193,8 @@ pub fn scan(source: &str) -> Vec<Token> {
                 let start = i;
                 while i + 1 < length
                     && ![
-                        '#', '$', '%', '^', '&', '_', '{', '}', '\\', '~', '[', ']', ' ',
+                        '#', '$', '%', '^', '&', '_', '{', '}', '\\', '~', '[',
+                        ']', ' ',
                     ]
                     .contains(&chars[i + 1])
                     && !chars[i + 1].is_whitespace()

@@ -4,7 +4,8 @@ mod init;
 use clap::{Parser, Subcommand};
 
 use simplelog::{
-    ColorChoice, CombinedLogger, Config as LogConfig, LevelFilter, TermLogger, TerminalMode,
+    ColorChoice, CombinedLogger, Config as LogConfig, LevelFilter, TermLogger,
+    TerminalMode,
 };
 
 #[derive(Debug, Parser)]

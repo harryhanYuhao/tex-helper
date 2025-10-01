@@ -13,7 +13,12 @@ pub fn compile(main_file_path: &str) -> Result<(), Box<dyn Error>> {
     let binary = match &binding {
         Some(b) => b,
         None => {
-            return Err(format!("{}: {}", "Latex Binary".red(), "Not Found".red()).into());
+            return Err(format!(
+                "{}: {}",
+                "Latex Binary".red(),
+                "Not Found".red()
+            )
+            .into());
         }
     };
 

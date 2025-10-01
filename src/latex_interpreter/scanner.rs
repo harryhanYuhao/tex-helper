@@ -28,6 +28,8 @@ use std::fmt::{self, Display, Formatter};
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
+    pub row: usize, // row (line) number in the source file, starting from 0
+    pub col: usize, // column number in the source file, starting from 0
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -67,13 +69,23 @@ pub enum TokenType {
     // Escaped Characters can not be simply treated as Text
     // Some of them have special functionalities
     EscapedChar,
-    
+
     Newline,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String) -> Self {
-        Token { token_type, lexeme }
+    pub fn new(
+        token_type: TokenType,
+        lexeme: String,
+        row: usize,
+        col: usize,
+    ) -> Self {
+        Token {
+            token_type,
+            lexeme,
+            row,
+            col,
+        }
     }
 
     pub fn to_string_from_vec(tokens: &[Token]) -> String {
@@ -86,7 +98,8 @@ impl Token {
     }
 
     pub fn is_operator(&self) -> bool {
-        self.token_type == TokenType::Uptick || self.token_type == TokenType::Underline
+        self.token_type == TokenType::Uptick
+            || self.token_type == TokenType::Underline
     }
 
     pub fn is_begin_envr(&self) -> bool {
@@ -124,19 +137,33 @@ pub fn scan(source: &str) -> Vec<Token> {
     let mut ret: Vec<Token> = Vec::new();
     let mut i = 0;
 
-    // Note we have an i+=1 at the end of the loop
-    // so in match, i shall only be incremented with the extra space
+    let mut row: usize = 0;
+    let mut col: usize = 0;
+    let mut encountered_newline = false; // for incrementing row and col
+    let mut prev_i = i; // for calculating col
+                        // Note we have an i+=1 at the end of the loop
+                        // so in match, i shall only be incremented with the extra space
     while i < length {
         match chars[i] {
             '#' => {
-                ret.push(Token::new(TokenType::Hash, "#".into()));
+                ret.push(Token::new(TokenType::Hash, "#".into(), row, col));
             }
             '$' => {
                 if i + 1 < length && chars[i + 1] == '$' {
-                    ret.push(Token::new(TokenType::DoubleDollar, "$$".into()));
+                    ret.push(Token::new(
+                        TokenType::DoubleDollar,
+                        "$$".into(),
+                        row,
+                        col,
+                    ));
                     i += 1; // Skip the next '$'
                 } else {
-                    ret.push(Token::new(TokenType::Dollar, "$".into()));
+                    ret.push(Token::new(
+                        TokenType::Dollar,
+                        "$".into(),
+                        row,
+                        col,
+                    ));
                 }
             }
             // As we are working on a formatter, we can not just ignore the comments
@@ -150,40 +177,75 @@ pub fn scan(source: &str) -> Vec<Token> {
                 // however, if the current line is the end of the document and does
                 // not contain a \n, it returns the index of last character of the
                 // document
-                if end_of_line == chars.len() - 1 && chars[end_of_line] != '\n' {
+                if end_of_line == chars.len() - 1 && chars[end_of_line] != '\n'
+                {
                     ret.push(Token::new(
                         TokenType::Comment,
                         chars[i + 1..=end_of_line].iter().collect(),
+                        row,
+                        col,
                     ));
                     i = end_of_line;
                 } else {
                     ret.push(Token::new(
                         TokenType::Comment,
                         chars[i + 1..end_of_line].iter().collect(),
+                        row,
+                        col,
                     ));
                     i = end_of_line - 1;
                 }
             }
             '^' => {
-                ret.push(Token::new(TokenType::Uptick, "^".into()));
+                ret.push(Token::new(TokenType::Uptick, "^".into(), row, col));
             }
             '&' => {
-                ret.push(Token::new(TokenType::Ampersand, "&".into()));
+                ret.push(Token::new(
+                    TokenType::Ampersand,
+                    "&".into(),
+                    row,
+                    col,
+                ));
             }
             '_' => {
-                ret.push(Token::new(TokenType::Underline, "_".into()));
+                ret.push(Token::new(
+                    TokenType::Underline,
+                    "_".into(),
+                    row,
+                    col,
+                ));
             }
             '{' => {
-                ret.push(Token::new(TokenType::LeftCurlyBracket, "{".into()));
+                ret.push(Token::new(
+                    TokenType::LeftCurlyBracket,
+                    "{".into(),
+                    row,
+                    col,
+                ));
             }
             '}' => {
-                ret.push(Token::new(TokenType::RightCurlyBracket, "}".into()));
+                ret.push(Token::new(
+                    TokenType::RightCurlyBracket,
+                    "}".into(),
+                    row,
+                    col,
+                ));
             }
             '\\' => {
                 if i + 1 >= length {
-                    ret.push(Token::new(TokenType::Backslash, "\\".into()));
+                    ret.push(Token::new(
+                        TokenType::Backslash,
+                        "\\".into(),
+                        row,
+                        col,
+                    ));
                 } else if chars[i + 1] == '\\' {
-                    ret.push(Token::new(TokenType::DoubleBackslash, String::new()));
+                    ret.push(Token::new(
+                        TokenType::DoubleBackslash,
+                        String::new(),
+                        row,
+                        col,
+                    ));
                     i += 1;
                 } else if chars[i + 1] == '#'
                     || chars[i + 1] == '$'
@@ -196,16 +258,36 @@ pub fn scan(source: &str) -> Vec<Token> {
                     || chars[i + 1] == '~'
                     || chars[i + 1] == ' '
                 {
-                    ret.push(Token::new(TokenType::EscapedChar, chars[i + 1].into()));
+                    ret.push(Token::new(
+                        TokenType::EscapedChar,
+                        chars[i + 1].into(),
+                        row,
+                        col,
+                    ));
                     i += 1;
                 } else if chars[i + 1] == '\n' {
-                    ret.push(Token::new(TokenType::Backslash, "\\".into()));
+                    ret.push(Token::new(
+                        TokenType::Backslash,
+                        "\\".into(),
+                        row,
+                        col,
+                    ));
                     // note we do not increase i+1 here.
                 } else if chars[i + 1] == '[' {
-                    ret.push(Token::new(TokenType::SlashOpenBracket, "\\[".into()));
+                    ret.push(Token::new(
+                        TokenType::SlashOpenBracket,
+                        "\\[".into(),
+                        row,
+                        col,
+                    ));
                     i += 1;
                 } else if chars[i + 1] == ']' {
-                    ret.push(Token::new(TokenType::SlashCloseBracket, "\\]".into()));
+                    ret.push(Token::new(
+                        TokenType::SlashCloseBracket,
+                        "\\]".into(),
+                        row,
+                        col,
+                    ));
                     i += 1;
                 } else if chars[i + 1].is_alphabetic() {
                     let start = i + 1;
@@ -215,23 +297,37 @@ pub fn scan(source: &str) -> Vec<Token> {
                     ret.push(Token::new(
                         TokenType::Command,
                         chars[start..=i].iter().collect(),
+                        row,
+                        col,
                     ));
                 }
             }
             '~' => {
-                ret.push(Token::new(TokenType::Tilde, "~".into()));
+                ret.push(Token::new(TokenType::Tilde, "~".into(), row, col));
             }
             '[' => {
-                ret.push(Token::new(TokenType::LeftSquareBracket, "[".into()));
+                ret.push(Token::new(
+                    TokenType::LeftSquareBracket,
+                    "[".into(),
+                    row,
+                    col,
+                ));
             }
             ']' => {
-                ret.push(Token::new(TokenType::RightSquareBracket, "]".into()));
+                ret.push(Token::new(
+                    TokenType::RightSquareBracket,
+                    "]".into(),
+                    row,
+                    col,
+                ));
             }
             ' ' | '\t' => {
                 if is_beginning_of_line(&chars, i) {
                     //
                 } else {
-                    while i + 1 < length && (chars[i + 1] == ' ' || chars[i + 1] == '\t') {
+                    while i + 1 < length
+                        && (chars[i + 1] == ' ' || chars[i + 1] == '\t')
+                    {
                         i += 1;
                     }
                     // ret.push(Token::new(TokenType::Space, String::new()));
@@ -239,14 +335,28 @@ pub fn scan(source: &str) -> Vec<Token> {
             }
             '\n' => {
                 let mut newline_count = 1;
-                while i + 1 < length && (chars[i + 1] == ' ' || chars[i+1] == '\t' || chars[i + 1] == '\n'){
-                    if chars[i+1] == '\n' {
+                row += 1;
+                col = 0;
+                encountered_newline = true;
+                while i + 1 < length
+                    && (chars[i + 1] == ' '
+                        || chars[i + 1] == '\t'
+                        || chars[i + 1] == '\n')
+                {
+                    if chars[i + 1] == '\n' {
                         newline_count += 1;
+                        row += 1;
+                    } else {
                     }
                     i += 1;
                 }
-                if newline_count >= 2{
-                    ret.push(Token::new(TokenType::Newline, "\n".into()));
+                if newline_count >= 2 {
+                    ret.push(Token::new(
+                        TokenType::Newline,
+                        "\n".into(),
+                        row,
+                        0,
+                    ));
                 }
             }
             _ => {
@@ -254,7 +364,8 @@ pub fn scan(source: &str) -> Vec<Token> {
                 let start = i;
                 while i + 1 < length
                     && ![
-                        '#', '$', '%', '^', '&', '_', '{', '}', '\\', '~', '[', ']', ' ',
+                        '#', '$', '%', '^', '&', '_', '{', '}', '\\', '~', '[',
+                        ']', ' ',
                     ]
                     .contains(&chars[i + 1])
                     && !chars[i + 1].is_whitespace()
@@ -264,44 +375,24 @@ pub fn scan(source: &str) -> Vec<Token> {
                 ret.push(Token::new(
                     TokenType::Word,
                     chars[start..=i].iter().collect::<String>(),
+                    row,
+                    col,
                 ));
             }
         } // end of match
 
         i += 1;
+        if !encountered_newline {
+            col += i - prev_i;
+            prev_i = i;
+        } else {
+            col = 0;
+            encountered_newline = false;
+        }
     } // end of loop
     ret
 }
 
-/// return true if index = 0, or there is only spaces between source[index] and the previous newline
-/// or the 0th index
-///
-/// In particular, as latex ignore the beginning spaces of a line
-/// the first non-space character and all space before it are all considered
-/// as the beg
-///
-/// Eg:
-///# aaa {
-///#    ^
-///#     is not beginning of group
-///# arma virumque cano        {Trioae}
-///#                           ^
-///#                          is beginning of group
-/// Will panic if index is not valid, that is, index > source.len()
-fn is_beginning_of_group(source: &[char], index: usize) -> bool {
-    if index >= source.len() {
-        panic!("Index >= source.len() in function is_beginning_of_line. Program internal bug.");
-    }
-    let mut i = index;
-    while i > 0 && (source[i - 1] == ' ' || source[i - 1] == '\t') {
-        i -= 1;
-    }
-
-    if i == 0 || source[i - 1] == '{' {
-        return true;
-    }
-    false
-}
 /// return true if index = 0, or there is only spaces between source[index] and the previous newline
 /// or the 0th index
 ///
@@ -365,7 +456,10 @@ mod test_scan {
     use super::*;
 
     /// Aux function for test
-    fn compare_expected_and_tokens(expected: Vec<(TokenType, String)>, tokens: Vec<Token>) {
+    fn compare_expected_and_tokens(
+        expected: Vec<(TokenType, String)>,
+        tokens: Vec<Token>,
+    ) {
         assert_eq!(expected.len(), tokens.len());
 
         for (i, token) in tokens.iter().enumerate() {
@@ -379,6 +473,41 @@ mod test_scan {
                 panic!(
                     "Token lexeme mismatch at index {}: expected {:?}, got {:?}",
                     i, expected[i].1, token.lexeme
+                );
+            }
+        }
+    }
+
+    ///
+    fn compare_expected_and_tokens_with_row_col(
+        expected: Vec<(TokenType, String, usize, usize)>,
+        tokens: Vec<Token>,
+    ) {
+        assert_eq!(expected.len(), tokens.len());
+
+        for (i, token) in tokens.iter().enumerate() {
+            if token.token_type != expected[i].0 {
+                panic!(
+                    "Token type mismatch at index {}: expected {:?}, got {:?}",
+                    i, expected[i].0, token.token_type
+                );
+            }
+            if token.lexeme != expected[i].1 {
+                panic!(
+                    "Token lexeme mismatch at index {}: expected {:?}, got {:?}",
+                    i, expected[i].1, token.lexeme
+                );
+            }
+            if token.row != expected[i].2 {
+                panic!(
+                    "Token row mismatch at index {}: expected {:?}, got {:?}",
+                    i, expected[i].2, token.row
+                );
+            }
+            if token.col != expected[i].3 {
+                panic!(
+                    "Token col mismatch at index {}: expected {:?}, got {:?}",
+                    i, expected[i].3, token.col
                 );
             }
         }
@@ -419,11 +548,11 @@ mod test_scan {
     #[test]
     fn test_fnscan_newline() {
         let tokens = scan("a\nb");
-        let expected: Vec<(TokenType, String)> = vec![
-            (TokenType::Word, "a".into()),
-            (TokenType::Word, "b".into()),
+        let expected: Vec<(TokenType, String, usize, usize)> = vec![
+            (TokenType::Word, "a".into(), 0, 0),
+            (TokenType::Word, "b".into(), 1, 0),
         ];
-        compare_expected_and_tokens(expected, tokens);
+        compare_expected_and_tokens_with_row_col(expected, tokens);
 
         let tokens = scan(
             r##"a % A comment
@@ -479,7 +608,7 @@ aaa"##,
     fn test_short_text() {
         let tokens = scan("arma virumque cano , ");
 
-        let expected: Vec<(TokenType, String)>= vec![
+        let expected: Vec<(TokenType, String)> = vec![
             (TokenType::Word, "arma".into()),
             (TokenType::Word, "virumque".into()),
             (TokenType::Word, "cano".into()),

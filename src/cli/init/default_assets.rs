@@ -132,7 +132,6 @@ pub(super) fn default_preable(doc_mode: &str) -> String {
     }
 }
 
-
 pub(super) fn reference_bib() -> String {
     String::from(
         r##"% @inproceedings{lesk:1977,

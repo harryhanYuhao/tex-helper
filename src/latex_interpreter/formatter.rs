@@ -14,7 +14,6 @@ enum FormatState {
 //    Operation, // parsing a^b a_c
 //    Ampersand, // & are used for alignment in Latex
 //    DoubleBackSlash, //  \\
-//    LineBreak,       // /n  A single line break is considered as a space
 //
 //    Command,
 //    CurlyBracketArg, // {para}
@@ -27,6 +26,12 @@ enum FormatState {
 //
 //    Comment,
 //}
+//
+// Note::
+// The root of AST is always a Passage node
+// The Passage node contains many Paragraph nodes
+// Passage and paragraph nodes are for structuring and not contain any text by themselves
+//
 
 pub fn format(ast: NodePtr) -> String {
     String::new()

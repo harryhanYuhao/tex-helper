@@ -38,10 +38,17 @@ fn create_file_in_project_dir(
     Ok(())
 }
 
-pub(super) fn init_tex_project(package_name: &str, doc_mode: &str) -> Result<(), Box<dyn Error>> {
+pub(super) fn init_tex_project(
+    package_name: &str,
+    doc_mode: &str,
+) -> Result<(), Box<dyn Error>> {
     create_new_dir(package_name)?;
 
-    create_file_in_project_dir(package_name, ".gitignore", &default_assets::gitignore())?;
+    create_file_in_project_dir(
+        package_name,
+        ".gitignore",
+        &default_assets::gitignore(),
+    )?;
     create_file_in_project_dir(
         package_name,
         "references.bib",
@@ -57,11 +64,11 @@ pub(super) fn init_tex_project(package_name: &str, doc_mode: &str) -> Result<(),
 /// There are four default modes: article, report, book, letter
 /// custom templates can be placed in CONFIG_DIR (~/.config/tex-helper)
 /// There are several cases:
-/// CONFIG_DIR/doc_mode.tex exists and is a file: 
+/// CONFIG_DIR/doc_mode.tex exists and is a file:
 ///     Copy CONFIG_DIR/doc_mode.tex to package_name/main_file_name
 /// CONFIG_DIR/doc_mode.tex exists and is a directory:
 ///     Copy all recursively from CONFIG_DIR/doc_mode to package_name/
-/// CONFIG_DIR/doc_mode exists and is a file: 
+/// CONFIG_DIR/doc_mode exists and is a file:
 ///     Copy CONFIG_DIR/doc_mode.tex to package_name/main_file_name
 /// CONFIG_DIR/doc_mode exists and is a directory:
 ///     Copy all recursively from CONFIG_DIR/doc_mode to package_name/
@@ -94,7 +101,10 @@ fn create_preamble_contents(
     Ok(())
 }
 
-fn create_main_with_defaults(package_name: &str, doc_mode: &str) -> Result<(), Box<dyn Error>> {
+fn create_main_with_defaults(
+    package_name: &str,
+    doc_mode: &str,
+) -> Result<(), Box<dyn Error>> {
     let main_file_name = config::get_main_file_name();
 
     let ret = default_assets::default_preable(doc_mode);
@@ -112,10 +122,12 @@ fn create_main_with_defaults(package_name: &str, doc_mode: &str) -> Result<(), B
 }
 
 /// check if custom template exists in config dir
-/// if template_name.tex exists, return its path 
+/// if template_name.tex exists, return its path
 /// if template_name exists, return its path
 /// else return empty string
-fn custom_template_exists(template_name: &str) -> Result<String, Box<dyn Error>> {
+fn custom_template_exists(
+    template_name: &str,
+) -> Result<String, Box<dyn Error>> {
     let fp = format!("{}/{}", utils::get_config_dir()?, template_name);
     let fp_tex = format!("{}.tex", &fp);
 

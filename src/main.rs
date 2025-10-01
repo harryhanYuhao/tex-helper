@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex};
 
 mod cli;
 mod config;
-mod utils;
 mod latex_interpreter;
 mod markdown_interpreter;
+mod utils;
 
 use config::Config;
 
@@ -23,6 +23,8 @@ fn init() {
     // i.e., finding latex binary, etc
     // the configuration will be further updated by the cli
     config.init();
+
+    // simplelog is initialised in cli, as there are debug options in cli
 }
 
 fn main() {

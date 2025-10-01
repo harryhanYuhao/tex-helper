@@ -1,9 +1,9 @@
 use crate::config;
 use std::error::Error;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::{fs, io};
-use std::path::Path;
 
 fn command_exists(command: &str) -> bool {
     Command::new("which")
@@ -51,7 +51,10 @@ pub(crate) fn get_main_file_path(package_name: &str) -> PathBuf {
     PathBuf::from(package_name).join(main_file_name)
 }
 
-pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+pub fn copy_dir_all(
+    src: impl AsRef<Path>,
+    dst: impl AsRef<Path>,
+) -> io::Result<()> {
     fs::create_dir_all(&dst)?;
     for entry in fs::read_dir(src)? {
         let entry = entry?;
