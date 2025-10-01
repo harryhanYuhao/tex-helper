@@ -36,16 +36,6 @@ use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug)]
-enum ErrorType {
-    UnexpectedToken,
-    UnexpectedEOF,
-    InvalidSyntax,
-    UnexpectedRightBrace,
-    UnexpectedRightBracket,
-    UnexpectedSlashCloseBracket, // \] for ending math mode
-}
-
 
 /// This is the main function of this file
 pub fn parse(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {

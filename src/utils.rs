@@ -71,6 +71,7 @@ pub fn copy_dir_all(
 }
 
 /// Struct for IO and error handling
+#[derive(Debug, Clone)]
 pub struct FileInput {
     pub file_path: PathBuf,
     pub content: String,

@@ -64,7 +64,7 @@ Hello, World!
 "
             .into(),
         };
-        let tokens = scanner::scan_file(&input);
+        let tokens = scanner::scan(input.clone()).unwrap();
 
         let token_error = TokenError::new(&tokens[0], "Test error");
         println!("{}", create_error(&token_error, &input));
