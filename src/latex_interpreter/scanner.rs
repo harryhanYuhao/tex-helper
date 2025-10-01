@@ -22,7 +22,8 @@
 //! 1. Commands are scanned into command tokens, the beginning backslash is not in the lexeme.
 //! 1. Escaped characters are into EscapedChar, the backslash is not in the lexeme.
 
-use crate::utils::FileInput;
+use crate::utils::{FileInput};
+use super::error::TokenError;
 use colored::*;
 use std::fmt::{self, Display, Formatter};
 
@@ -125,21 +126,10 @@ impl Display for Token {
     }
 }
 
-pub struct ScanError {
-    pub token: Token,
-    pub msg: String,
-}
-
-impl ScanError {
-    pub fn new(token: &Token, msg: &str) -> Self {
-        let token = token.clone();
-        let msg  = msg.to_string();
-        ScanError { token, msg }
-    }
-}
 
 
-/// Main Part of this file 
+/// Scanner struct is used for scanning source code
+/// 
 /// To scan: 
 /// 1. create mutable scanner 
 /// 2. call scan() method
@@ -149,12 +139,12 @@ impl ScanError {
 // to record the errors.
 pub struct Scanner {
     pub file_input: FileInput,
-    pub errors: Vec<ScanError>,
+    pub errors: Vec<TokenError>,
 }
 
 impl Scanner {
-    pub fn new(file_input: &str) -> Self {
-        let file_input = FileInput::new(file_input).unwrap();
+    pub fn from_file_path(file_input: &str) -> Self {
+        let file_input = FileInput::from_file_path(file_input).unwrap();
         Scanner {
             file_input,
             errors: Vec::new(),
@@ -170,7 +160,7 @@ impl Scanner {
         let mut ret = String::new();
 
         for i in self.errors.iter() {
-            ret.push_str(&create_error(&i.token, &self.file_input, &i.msg));
+            ret.push_str(&create_error(&i, &self.file_input));
             ret.push('\n');
         }
 

@@ -77,7 +77,7 @@ pub struct FileInput {
 }
 
 impl FileInput {
-    pub fn new(file_path: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn from_file_path(file_path: &str) -> Result<Self, Box<dyn Error>> {
         let content = fs::read_to_string(&file_path)?;
         let file_path = PathBuf::from(file_path);
         Ok(FileInput { file_path, content })

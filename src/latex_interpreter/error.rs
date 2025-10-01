@@ -3,8 +3,29 @@ use colored::*;
 
 use crate::utils::FileInput;
 
-pub fn create_error(token: &Token, input: &FileInput, msg: &str) -> String {
+/// Token error holds the Token where error is found and the error messages
+/// Tokens contains the row and column numbers, but not the name of the source file, which is
+/// stored in FileInput Struct
+/// Scanner and parser will have a field of FileInput and
+/// Handling the error message is by the corresponding methods of the Scanner and Parser
+pub struct TokenError {
+    pub token: Token,
+    pub msg: String,
+}
+
+impl TokenError {
+    pub fn new(token: &Token, msg: &str) -> Self {
+        let token = token.clone();
+        let msg = msg.to_string();
+        TokenError { token, msg }
+    }
+}
+
+pub fn create_error(token_error: &TokenError, input: &FileInput) -> String {
+    let msg = &token_error.msg;
     let file_path = input.get_file_path().display();
+
+    let token = &token_error.token;
     let row = token.row + 1;
     let col = token.col + 1;
     let red_error = "ERROR".red().bold();
@@ -44,6 +65,8 @@ Hello, World!
             .into(),
         };
         let tokens = scanner::scan_file(&input);
-        println!("{}", create_error(&tokens[0], &input, "Test error"));
+
+        let token_error = TokenError::new(&tokens[0], "Test error");
+        println!("{}", create_error(&token_error, &input));
     }
 }
