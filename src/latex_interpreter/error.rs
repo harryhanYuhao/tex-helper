@@ -1,16 +1,19 @@
 use super::scanner::Token;
 use colored::*;
 
-pub fn create_error(token: &Token, input: &str) -> String {
-    let mut ret = format!(
-        "{} at line {}, column {} with token {}\n",
-        "Error".red().bold(),
-        token.row + 1,
-        token.col + 1,
-        token,
-    );
+use crate::utils::FileInput;
 
-    let lines: Vec<String> = input.split('\n').map(|s| s.to_string()).collect();
+pub fn create_error(token: &Token, input: &FileInput, msg: &str) -> String {
+    let file_path = input.get_file_path().display();
+    let row = token.row + 1;
+    let col = token.col + 1;
+    let red_error = "ERROR".red().bold();
+    let mut ret = format!("{file_path}:{row}:{col} {red_error}: {msg}\n");
+
+    let in_str = input.get_content();
+    let lines: Vec<String> =
+        in_str.split('\n').map(|s| s.to_string()).collect();
+
     ret.push_str(&format!("{}\n", lines[token.row]));
     ret.push_str(&format!(
         "{}{}\n",
@@ -26,16 +29,21 @@ mod tests {
     use super::*;
     use crate::latex_interpreter::parser;
     use crate::latex_interpreter::scanner;
+    use crate::utils::FileInput;
 
     #[test]
     #[ignore]
     fn test_create_error() {
-        let input = r"\documentclass{article}
+        let input = FileInput {
+            file_path: "dummy/path".into(),
+            content: r"\documentclass{article}
 \begin{document}
 Hello, World!
 \end{document}
-";
-        let tokens = scanner::scan(&input);
-        println!("{}", create_error(&tokens[0], &input));
+"
+            .into(),
+        };
+        let tokens = scanner::scan_file(&input);
+        println!("{}", create_error(&tokens[0], &input, "Test error"));
     }
 }

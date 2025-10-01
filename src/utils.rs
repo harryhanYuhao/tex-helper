@@ -70,5 +70,27 @@ pub fn copy_dir_all(
     Ok(())
 }
 
+/// Struct for IO and error handling
+pub struct FileInput {
+    pub file_path: PathBuf,
+    pub content: String,
+}
+
+impl FileInput {
+    pub fn new(file_path: &str) -> Result<Self, Box<dyn Error>> {
+        let content = fs::read_to_string(&file_path)?;
+        let file_path = PathBuf::from(file_path);
+        Ok(FileInput { file_path, content })
+    }
+
+    pub fn get_content(&self) -> &str {
+        &self.content
+    }
+
+    pub fn get_file_path(&self) -> &PathBuf {
+        &self.file_path
+    }
+}
+
 #[cfg(test)]
 mod test {}

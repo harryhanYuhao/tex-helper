@@ -1,28 +1,30 @@
-use std::fmt::{self, Display, Formatter};
+//! A custom scanner for LaTex
+//!
+//! This files defines the struct Token and the scan function.
+//!
+//! Scan input a &str and output a Vec of Tokens.
+//! Tokens, for the most parts, are scanned in the obvious way: all speical
+//! characters (including newline and space) have their own token types.
+//!
+//! Here are the description of the implementation
+//! 1, Each token consists of a TokenType and a lexeme.
+//! The lexeme is ignored for certain TokenTypes, such as Space, Newline,
+//! 1. Multiple spaces are treated as one space token, except when they are at the beginning of a
+//!     line, in which case they are ignored.
+//! 1. Comments are treated as a single space token, except when they occupies the whole line, in
+//!    which case the newline character at the end of the line is also ignored. check
+//!     1. This means sometime there are several consecutive space tokens. The handle of which is
+//!        left to the parser.
+//!    doc/latex_grammar/1_overview.md#Comments for more details.
+//! 1. The basic token for Text is Word
+//! which is scanned until the next special character or whitespace.
+//! So `apple banana orange` will be scanned into 5 tokens: Word(apple), Space, Word(b), Space, Word(orange)
+//! 1. Commands are scanned into command tokens, the beginning backslash is not in the lexeme.
+//! 1. Escaped characters are into EscapedChar, the backslash is not in the lexeme.
 
-/// A custom scanner for LaTex
-///
-/// This files defines the struct Token and the scan function.
-///
-/// Scan input a &str and output a Vec of Tokens.
-/// Tokens, for the most parts, are scanned in the obvious way: all speical
-/// characters (including newline and space) have their own token types.
-///
-/// Here are the description of the implementation
-/// 1, Each token consists of a TokenType and a lexeme.
-/// The lexeme is ignored for certain TokenTypes, such as Space, Newline,
-/// 1. Multiple spaces are treated as one space token, except when they are at the beginning of a
-///     line, in which case they are ignored.
-/// 1. Comments are treated as a single space token, except when they occupies the whole line, in
-///    which case the newline character at the end of the line is also ignored. check
-///     1. This means sometime there are several consecutive space tokens. The handle of which is
-///        left to the parser.
-///    doc/latex_grammar/1_overview.md#Comments for more details.
-/// 1. The basic token for Text is Word
-/// which is scanned until the next special character or whitespace.
-/// So `apple banana orange` will be scanned into 5 tokens: Word(apple), Space, Word(b), Space, Word(orange)
-/// 1. Commands are scanned into command tokens, the beginning backslash is not in the lexeme.
-/// 1. Escaped characters are into EscapedChar, the backslash is not in the lexeme.
+use crate::utils::FileInput;
+use colored::*;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Token {
@@ -123,274 +125,358 @@ impl Display for Token {
     }
 }
 
-/// This is the major function of this file.
-///
-/// Input: A string representing latex code read from Latex file
-/// Output: A vector of Tokens
-///
-/// This function implements a naive regex algorithm.
-/// TODO: describe formally the algorithm, and the expected output
-pub fn scan(source: &str) -> Vec<Token> {
-    let chars: Vec<char> = source.chars().collect();
-    let length = chars.len();
+pub struct ScanError {
+    pub token: Token,
+    pub msg: String,
+}
 
-    let mut ret: Vec<Token> = Vec::new();
-    let mut i = 0;
+impl ScanError {
+    pub fn new(token: &Token, msg: &str) -> Self {
+        let token = token.clone();
+        let msg  = msg.to_string();
+        ScanError { token, msg }
+    }
+}
 
-    let mut row: usize = 0;
-    let mut col: usize = 0;
-    let mut encountered_newline = false; // for incrementing row and col
-    let mut prev_i = i; // for calculating col
-                        // Note we have an i+=1 at the end of the loop
-                        // so in match, i shall only be incremented with the extra space
-    while i < length {
-        match chars[i] {
-            '#' => {
-                ret.push(Token::new(TokenType::Hash, "#".into(), row, col));
-            }
-            '$' => {
-                if i + 1 < length && chars[i + 1] == '$' {
-                    ret.push(Token::new(
-                        TokenType::DoubleDollar,
-                        "$$".into(),
-                        row,
-                        col,
-                    ));
-                    i += 1; // Skip the next '$'
-                } else {
-                    ret.push(Token::new(
-                        TokenType::Dollar,
-                        "$".into(),
-                        row,
-                        col,
-                    ));
+
+/// Main Part of this file 
+/// To scan: 
+/// 1. create mutable scanner 
+/// 2. call scan() method
+/// 3. call have_errors() to check if there are errors
+/// 4. call display_errors() to get the error messages
+// The main reason we have scanner struct is that, while scanning, we need
+// to record the errors.
+pub struct Scanner {
+    pub file_input: FileInput,
+    pub errors: Vec<ScanError>,
+}
+
+impl Scanner {
+    pub fn new(file_input: &str) -> Self {
+        let file_input = FileInput::new(file_input).unwrap();
+        Scanner {
+            file_input,
+            errors: Vec::new(),
+        }
+    }
+
+    pub fn have_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
+    pub fn display_errors(&self) -> String {
+        use super::error::create_error;
+        let mut ret = String::new();
+
+        for i in self.errors.iter() {
+            ret.push_str(&create_error(&i.token, &self.file_input, &i.msg));
+            ret.push('\n');
+        }
+
+        ret
+    }
+
+    /// This is the major function of this file.
+    ///
+    /// Input: A string representing latex code read from Latex file
+    /// Output: A vector of Tokens
+    ///
+    /// This function implements a naive regex algorithm.
+    /// TODO: describe formally the algorithm, and the expected output
+    pub fn scan(&mut self) -> Vec<Token> {
+        let source = self.file_input.get_content();
+        let chars: Vec<char> = source.chars().collect();
+        let length = chars.len();
+
+        let mut ret: Vec<Token> = Vec::new();
+        let mut i = 0;
+
+        let mut row: usize = 0;
+        let mut col: usize = 0;
+        let mut encountered_newline = false; // for incrementing row and col
+        let mut prev_i = i; // for calculating col
+                            // Note we have an i+=1 at the end of the loop
+                            // so in match, i shall only be incremented with the extra space
+        while i < length {
+            match chars[i] {
+                '#' => {
+                    ret.push(Token::new(TokenType::Hash, "#".into(), row, col));
                 }
-            }
-            // As we are working on a formatter, we can not just ignore the comments
-            // check doc/latex_grammar/1_overview.md#Comments  for behaviour of
-            // comments in latex
-            '%' => {
-                let end_of_line = index_to_end_of_cur_line(&chars, i);
-
-                // index_to_end_of_cur_line returns the index of next \n char
-                // marking the end of current line
-                // however, if the current line is the end of the document and does
-                // not contain a \n, it returns the index of last character of the
-                // document
-                if end_of_line == chars.len() - 1 && chars[end_of_line] != '\n'
-                {
-                    ret.push(Token::new(
-                        TokenType::Comment,
-                        chars[i + 1..=end_of_line].iter().collect(),
-                        row,
-                        col,
-                    ));
-                    i = end_of_line;
-                } else {
-                    ret.push(Token::new(
-                        TokenType::Comment,
-                        chars[i + 1..end_of_line].iter().collect(),
-                        row,
-                        col,
-                    ));
-                    i = end_of_line - 1;
-                }
-            }
-            '^' => {
-                ret.push(Token::new(TokenType::Uptick, "^".into(), row, col));
-            }
-            '&' => {
-                ret.push(Token::new(
-                    TokenType::Ampersand,
-                    "&".into(),
-                    row,
-                    col,
-                ));
-            }
-            '_' => {
-                ret.push(Token::new(
-                    TokenType::Underline,
-                    "_".into(),
-                    row,
-                    col,
-                ));
-            }
-            '{' => {
-                ret.push(Token::new(
-                    TokenType::LeftCurlyBracket,
-                    "{".into(),
-                    row,
-                    col,
-                ));
-            }
-            '}' => {
-                ret.push(Token::new(
-                    TokenType::RightCurlyBracket,
-                    "}".into(),
-                    row,
-                    col,
-                ));
-            }
-            '\\' => {
-                if i + 1 >= length {
-                    ret.push(Token::new(
-                        TokenType::Backslash,
-                        "\\".into(),
-                        row,
-                        col,
-                    ));
-                } else if chars[i + 1] == '\\' {
-                    ret.push(Token::new(
-                        TokenType::DoubleBackslash,
-                        String::new(),
-                        row,
-                        col,
-                    ));
-                    i += 1;
-                } else if chars[i + 1] == '#'
-                    || chars[i + 1] == '$'
-                    || chars[i + 1] == '%'
-                    || chars[i + 1] == '^'
-                    || chars[i + 1] == '&'
-                    || chars[i + 1] == '_'
-                    || chars[i + 1] == '{'
-                    || chars[i + 1] == '}'
-                    || chars[i + 1] == '~'
-                    || chars[i + 1] == ' '
-                {
-                    ret.push(Token::new(
-                        TokenType::EscapedChar,
-                        chars[i + 1].into(),
-                        row,
-                        col,
-                    ));
-                    i += 1;
-                } else if chars[i + 1] == '\n' {
-                    ret.push(Token::new(
-                        TokenType::Backslash,
-                        "\\".into(),
-                        row,
-                        col,
-                    ));
-                    // note we do not increase i+1 here.
-                } else if chars[i + 1] == '[' {
-                    ret.push(Token::new(
-                        TokenType::SlashOpenBracket,
-                        "\\[".into(),
-                        row,
-                        col,
-                    ));
-                    i += 1;
-                } else if chars[i + 1] == ']' {
-                    ret.push(Token::new(
-                        TokenType::SlashCloseBracket,
-                        "\\]".into(),
-                        row,
-                        col,
-                    ));
-                    i += 1;
-                } else if chars[i + 1].is_alphabetic() {
-                    let start = i + 1;
-                    while i + 1 < length && chars[i + 1].is_alphabetic() {
-                        i += 1
+                '$' => {
+                    if i + 1 < length && chars[i + 1] == '$' {
+                        ret.push(Token::new(
+                            TokenType::DoubleDollar,
+                            "$$".into(),
+                            row,
+                            col,
+                        ));
+                        i += 1; // Skip the next '$'
+                    } else {
+                        ret.push(Token::new(
+                            TokenType::Dollar,
+                            "$".into(),
+                            row,
+                            col,
+                        ));
                     }
+                }
+                // As we are working on a formatter, we can not just ignore the comments
+                // check doc/latex_grammar/1_overview.md#Comments  for behaviour of
+                // comments in latex
+                '%' => {
+                    let end_of_line = index_to_end_of_cur_line(&chars, i);
+
+                    // index_to_end_of_cur_line returns the index of next \n char
+                    // marking the end of current line
+                    // however, if the current line is the end of the document and does
+                    // not contain a \n, it returns the index of last character of the
+                    // document
+                    if end_of_line == chars.len() - 1
+                        && chars[end_of_line] != '\n'
+                    {
+                        ret.push(Token::new(
+                            TokenType::Comment,
+                            chars[i + 1..=end_of_line].iter().collect(),
+                            row,
+                            col,
+                        ));
+                        i = end_of_line;
+                    } else {
+                        ret.push(Token::new(
+                            TokenType::Comment,
+                            chars[i + 1..end_of_line].iter().collect(),
+                            row,
+                            col,
+                        ));
+                        i = end_of_line - 1;
+                    }
+                }
+                '^' => {
                     ret.push(Token::new(
-                        TokenType::Command,
-                        chars[start..=i].iter().collect(),
+                        TokenType::Uptick,
+                        "^".into(),
                         row,
                         col,
                     ));
                 }
-            }
-            '~' => {
-                ret.push(Token::new(TokenType::Tilde, "~".into(), row, col));
-            }
-            '[' => {
-                ret.push(Token::new(
-                    TokenType::LeftSquareBracket,
-                    "[".into(),
-                    row,
-                    col,
-                ));
-            }
-            ']' => {
-                ret.push(Token::new(
-                    TokenType::RightSquareBracket,
-                    "]".into(),
-                    row,
-                    col,
-                ));
-            }
-            ' ' | '\t' => {
-                if is_beginning_of_line(&chars, i) {
-                    //
-                } else {
+                '&' => {
+                    ret.push(Token::new(
+                        TokenType::Ampersand,
+                        "&".into(),
+                        row,
+                        col,
+                    ));
+                }
+                '_' => {
+                    ret.push(Token::new(
+                        TokenType::Underline,
+                        "_".into(),
+                        row,
+                        col,
+                    ));
+                }
+                '{' => {
+                    ret.push(Token::new(
+                        TokenType::LeftCurlyBracket,
+                        "{".into(),
+                        row,
+                        col,
+                    ));
+                }
+                '}' => {
+                    ret.push(Token::new(
+                        TokenType::RightCurlyBracket,
+                        "}".into(),
+                        row,
+                        col,
+                    ));
+                }
+                '\\' => {
+                    if i + 1 >= length {
+                        ret.push(Token::new(
+                            TokenType::Backslash,
+                            "\\".into(),
+                            row,
+                            col,
+                        ));
+                    } else if chars[i + 1] == '\\' {
+                        ret.push(Token::new(
+                            TokenType::DoubleBackslash,
+                            String::new(),
+                            row,
+                            col,
+                        ));
+                        i += 1;
+                    } else if chars[i + 1] == '#'
+                        || chars[i + 1] == '$'
+                        || chars[i + 1] == '%'
+                        || chars[i + 1] == '^'
+                        || chars[i + 1] == '&'
+                        || chars[i + 1] == '_'
+                        || chars[i + 1] == '{'
+                        || chars[i + 1] == '}'
+                        || chars[i + 1] == '~'
+                        || chars[i + 1] == ' '
+                    {
+                        ret.push(Token::new(
+                            TokenType::EscapedChar,
+                            chars[i + 1].into(),
+                            row,
+                            col,
+                        ));
+                        i += 1;
+                    } else if chars[i + 1] == '\n' {
+                        ret.push(Token::new(
+                            TokenType::Backslash,
+                            "\\".into(),
+                            row,
+                            col,
+                        ));
+                        // note we do not increase i+1 here.
+                    } else if chars[i + 1] == '[' {
+                        ret.push(Token::new(
+                            TokenType::SlashOpenBracket,
+                            "\\[".into(),
+                            row,
+                            col,
+                        ));
+                        i += 1;
+                    } else if chars[i + 1] == ']' {
+                        ret.push(Token::new(
+                            TokenType::SlashCloseBracket,
+                            "\\]".into(),
+                            row,
+                            col,
+                        ));
+                        i += 1;
+                    } else if chars[i + 1].is_alphabetic() {
+                        let start = i + 1;
+                        while i + 1 < length && chars[i + 1].is_alphabetic() {
+                            i += 1
+                        }
+                        ret.push(Token::new(
+                            TokenType::Command,
+                            chars[start..=i].iter().collect(),
+                            row,
+                            col,
+                        ));
+                    }
+                }
+                '~' => {
+                    ret.push(Token::new(
+                        TokenType::Tilde,
+                        "~".into(),
+                        row,
+                        col,
+                    ));
+                }
+                '[' => {
+                    ret.push(Token::new(
+                        TokenType::LeftSquareBracket,
+                        "[".into(),
+                        row,
+                        col,
+                    ));
+                }
+                ']' => {
+                    ret.push(Token::new(
+                        TokenType::RightSquareBracket,
+                        "]".into(),
+                        row,
+                        col,
+                    ));
+                }
+                ' ' | '\t' => {
+                    if is_beginning_of_line(&chars, i) {
+                        //
+                    } else {
+                        while i + 1 < length
+                            && (chars[i + 1] == ' ' || chars[i + 1] == '\t')
+                        {
+                            i += 1;
+                        }
+                        // ret.push(Token::new(TokenType::Space, String::new()));
+                    }
+                }
+                '\n' => {
+                    let mut newline_count = 1;
+                    row += 1;
+                    col = 0;
+                    encountered_newline = true;
                     while i + 1 < length
-                        && (chars[i + 1] == ' ' || chars[i + 1] == '\t')
+                        && (chars[i + 1] == ' '
+                            || chars[i + 1] == '\t'
+                            || chars[i + 1] == '\n')
+                    {
+                        if chars[i + 1] == '\n' {
+                            newline_count += 1;
+                            row += 1;
+                        } else {
+                        }
+                        i += 1;
+                    }
+                    if newline_count >= 2 {
+                        ret.push(Token::new(
+                            TokenType::Newline,
+                            "\n".into(),
+                            row,
+                            0,
+                        ));
+                    }
+                }
+                _ => {
+                    // Scan text until next reserved character or whitespace
+                    let start = i;
+                    while i + 1 < length
+                        && ![
+                            '#', '$', '%', '^', '&', '_', '{', '}', '\\', '~',
+                            '[', ']', ' ',
+                        ]
+                        .contains(&chars[i + 1])
+                        && !chars[i + 1].is_whitespace()
                     {
                         i += 1;
                     }
-                    // ret.push(Token::new(TokenType::Space, String::new()));
-                }
-            }
-            '\n' => {
-                let mut newline_count = 1;
-                row += 1;
-                col = 0;
-                encountered_newline = true;
-                while i + 1 < length
-                    && (chars[i + 1] == ' '
-                        || chars[i + 1] == '\t'
-                        || chars[i + 1] == '\n')
-                {
-                    if chars[i + 1] == '\n' {
-                        newline_count += 1;
-                        row += 1;
-                    } else {
-                    }
-                    i += 1;
-                }
-                if newline_count >= 2 {
                     ret.push(Token::new(
-                        TokenType::Newline,
-                        "\n".into(),
+                        TokenType::Word,
+                        chars[start..=i].iter().collect::<String>(),
                         row,
-                        0,
+                        col,
                     ));
                 }
-            }
-            _ => {
-                // Scan text until next reserved character or whitespace
-                let start = i;
-                while i + 1 < length
-                    && ![
-                        '#', '$', '%', '^', '&', '_', '{', '}', '\\', '~', '[',
-                        ']', ' ',
-                    ]
-                    .contains(&chars[i + 1])
-                    && !chars[i + 1].is_whitespace()
-                {
-                    i += 1;
-                }
-                ret.push(Token::new(
-                    TokenType::Word,
-                    chars[start..=i].iter().collect::<String>(),
-                    row,
-                    col,
-                ));
-            }
-        } // end of match
+            } // end of match
 
-        i += 1;
-        if !encountered_newline {
-            col += i - prev_i;
-            prev_i = i;
-        } else {
-            col = 0;
-            encountered_newline = false;
-        }
-    } // end of loop
-    ret
+            i += 1;
+            if !encountered_newline {
+                col += i - prev_i;
+                prev_i = i;
+            } else {
+                col = 0;
+                encountered_newline = false;
+            }
+        } // end of loop
+        ret
+    }
+}
+
+pub fn scan_file(input: &FileInput) -> Vec<Token> {
+    let content = input.get_content();
+    scan_str(&content)
+}
+
+pub fn scan_str(input: &str) -> Vec<Token> {
+    let file_input = FileInput {
+        file_path: "FromStr".into(),
+        content: input.into(),
+    };
+
+    let mut scanner = Scanner {
+        file_input,
+        errors: Vec::new(),
+    };
+
+    scanner.scan()
 }
 
 /// return true if index = 0, or there is only spaces between source[index] and the previous newline
@@ -536,7 +622,7 @@ mod test_scan {
 
     #[test]
     fn test_fnscan_space() {
-        let tokens = scan("  a bc  d ");
+        let tokens = scan_str("  a bc  d ");
         let expected: Vec<(TokenType, String)> = vec![
             (TokenType::Word, "a".into()),
             (TokenType::Word, "bc".into()),
@@ -547,14 +633,14 @@ mod test_scan {
 
     #[test]
     fn test_fnscan_newline() {
-        let tokens = scan("a\nb");
+        let tokens = scan_str("a\nb");
         let expected: Vec<(TokenType, String, usize, usize)> = vec![
             (TokenType::Word, "a".into(), 0, 0),
             (TokenType::Word, "b".into(), 1, 0),
         ];
         compare_expected_and_tokens_with_row_col(expected, tokens);
 
-        let tokens = scan(
+        let tokens = scan_str(
             r##"a % A comment
 %
 aaa"##,
@@ -570,7 +656,7 @@ aaa"##,
 
     #[test]
     fn test_slash_bracket() {
-        let tokens = scan(r"\[ \]");
+        let tokens = scan_str(r"\[ \]");
         let expected = vec![
             (TokenType::SlashOpenBracket, String::from("\\[")),
             (TokenType::SlashCloseBracket, String::from("\\]")),
@@ -580,7 +666,7 @@ aaa"##,
 
     #[test]
     fn test_short_math_mode() {
-        let tokens = scan(r"$E=mc^2$");
+        let tokens = scan_str(r"$E=mc^2$");
         assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].token_type, TokenType::Dollar);
         assert_eq!(tokens[1].token_type, TokenType::Word);
@@ -593,7 +679,7 @@ aaa"##,
 
     #[test]
     fn test_long_text_mode() {
-        let tokens = scan(r"$$E=mc^2$$");
+        let tokens = scan_str(r"$$E=mc^2$$");
         assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].token_type, TokenType::DoubleDollar);
         assert_eq!(tokens[1].token_type, TokenType::Word);
@@ -606,7 +692,7 @@ aaa"##,
 
     #[test]
     fn test_short_text() {
-        let tokens = scan("arma virumque cano , ");
+        let tokens = scan_str("arma virumque cano , ");
 
         let expected: Vec<(TokenType, String)> = vec![
             (TokenType::Word, "arma".into()),
@@ -619,7 +705,7 @@ aaa"##,
 
     #[test]
     fn test_long_text() {
-        let tokens = scan(
+        let tokens = scan_str(
             r##"arma virumque cano, Troiae qui primus ab oris 
 Italiam, fato profugus, Laviniaque venit 
 litora, multum ille et terris iactatus et alto 
@@ -661,7 +747,7 @@ vi superum saevae memorem Iunonis ob iram"##,
 
     #[test]
     fn test_comment() {
-        let tokens = scan(
+        let tokens = scan_str(
             r##"Aeneid % By Virgil
 arma virumque cano
 %I sing of arms and man
@@ -683,7 +769,7 @@ Triae qui"##,
 
     #[test]
     fn test_command() {
-        let tokens = scan(
+        let tokens = scan_str(
             r##"\alpha \beta \gamma
 \delta
 \epsilon"##,
@@ -701,7 +787,7 @@ Triae qui"##,
 
     #[test]
     fn test_escaped() {
-        let tokens = scan(r##"\# \$ \% \^ \& \_ \{ \} \~ \\ \ "##);
+        let tokens = scan_str(r##"\# \$ \% \^ \& \_ \{ \} \~ \\ \ "##);
         let expected: Vec<(TokenType, String)> = vec![
             (TokenType::EscapedChar, "#".into()),
             (TokenType::EscapedChar, "$".into()),
@@ -720,7 +806,7 @@ Triae qui"##,
 
     #[test]
     fn comprehensive_test_1() {
-        let tokens = scan(
+        let tokens = scan_str(
             r##"\documentclass{article}
 \begin{document}
 Hello, World! $E=mc^2$ 
@@ -766,7 +852,7 @@ mod test_token_token_type {
 \begin{document} 
 Hello, World! $E=mc^2$ 
 \end{document} %This is a comment"##;
-        let tokens = scan(input);
+        let tokens = scan_str(input);
 
         println!("Input text:\n{}", input);
 

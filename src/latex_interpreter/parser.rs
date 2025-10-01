@@ -31,7 +31,7 @@
 //! BracketArg -> [Paragraph]
 
 use super::ast::{Node, NodePtr, NodeType};
-use super::scanner::{scan, Token, TokenType};
+use super::scanner::{scan_str, Token, TokenType};
 use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, Mutex};
@@ -46,61 +46,6 @@ enum ErrorType {
     UnexpectedSlashCloseBracket, // \] for ending math mode
 }
 
-#[derive(Debug)]
-struct ParseError {
-    details: String,
-    error_type: ErrorType,
-}
-
-impl ParseError {
-    fn new(details: &str, error_type: ErrorType) -> Self {
-        let details: String = details.to_string();
-        ParseError {
-            details,
-            error_type,
-        }
-    }
-
-    fn unexpected_eof() -> Self {
-        ParseError {
-            details: format!("Unexpected End of Line!"),
-            error_type: ErrorType::UnexpectedEOF,
-        }
-    }
-
-    fn unexpected_eof_internal(info: &str) -> Self {
-        ParseError {
-            details: format!(
-                "Unexpected End of Line! Likely internal bug. Info: {}",
-                info
-            ),
-            error_type: ErrorType::UnexpectedEOF,
-        }
-    }
-
-    fn miss_match_type_interanl(
-        expected: TokenType,
-        found: TokenType,
-        info: &str,
-    ) -> Self {
-        ParseError {
-            details: format!(
-                "Expected {:?}, found {:?}. Likely Internal Bug. Info: {}",
-                expected, found, info
-            ),
-            error_type: ErrorType::UnexpectedToken,
-        }
-    }
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ParseError: {} ({:?})", self.details, self.error_type)
-    }
-}
-
-// Use the default implementations
-impl Error for ParseError {}
 
 /// This is the main function of this file
 pub fn parse(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {
@@ -602,7 +547,7 @@ mod test {
     #[test]
     fn string_content_recur() {
         let input = r##"aaabbb"##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         let ast = parser::parse(&tokens).unwrap();
         println!("{}", ast.lock().unwrap());
         let ast = ast.lock().unwrap();
@@ -621,7 +566,7 @@ e=mc^2
 \end{eq}
 Hope there is success!
 \end{document}"##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
 
@@ -631,7 +576,7 @@ Hope there is success!
     #[test]
     fn parser_slash_open_bracket() {
         let input = r##"\[e = mc^2\]"##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
 
@@ -641,7 +586,7 @@ Hope there is success!
     #[test]
     fn parser_operator() {
         let input = r##"e^{aaa}"##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
 
@@ -651,7 +596,7 @@ Hope there is success!
     #[test]
     fn parser_inline_math() {
         let input = r##"We have equation $e=mc^2$"##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
 
@@ -661,7 +606,7 @@ Hope there is success!
     #[test]
     fn parser_display_math() {
         let input = r##"We have equation $$a = b$$"##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
 
@@ -671,7 +616,7 @@ Hope there is success!
     #[test]
     fn parser_command() {
         let input = r##"\a{aaa}[abb]{asb}"##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
 
@@ -687,7 +632,7 @@ abc^def
 e^{i p} + 1 = 0
 Another paragraph!
 "##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
         let ast = parser::parse(&tokens).unwrap();
 
@@ -720,7 +665,7 @@ Another paragraph!
 
 \end{document}
 "##;
-        let tokens = scanner::scan(input);
+        let tokens = scanner::scan_str(input);
         let ast = parser::parse(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
