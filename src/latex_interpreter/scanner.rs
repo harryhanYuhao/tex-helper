@@ -22,12 +22,11 @@
 //! 1. Commands are scanned into command tokens, the beginning backslash is not in the lexeme.
 //! 1. Escaped characters are into EscapedChar, the backslash is not in the lexeme.
 
-use super::error::TokenError;
 use crate::utils::FileInput;
 use colored::*;
+use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
-use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -36,7 +35,6 @@ pub struct Token {
     pub lexeme: String,
     pub row: usize, // row (line) number in the source file, starting from 0
     pub col: usize, // column number in the source file, starting from 0
-    pub source: PathBuf, // the source file path: for error reporting
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -68,16 +66,21 @@ pub enum TokenType {
     SlashOpenBracket,  // \[
     SlashCloseBracket, // \]
 
-    Word, // Text that does not contains any space
+    // Text that does not contains any space
     // the basic unit for text is word instead of sentence, because that are other
+    Word,
+
     // word-like units, like comment and inline math
-    Comment, // Can not just ignore the comment, as we are working on a formatter
+    // Can not just ignore the comment, as we are working on a formatter
+    Comment,
 
     // Escaped Characters can not be simply treated as Text
     // Some of them have special functionalities
     EscapedChar,
 
-    Newline,
+    // Two or more consecutive newlines, which marks a new parragraph
+    // A sinle newline is ignored (just like space)
+    NewParagraph,
 }
 
 impl Token {
@@ -86,14 +89,12 @@ impl Token {
         lexeme: String,
         row: usize,
         col: usize,
-        source: &PathBuf,
     ) -> Self {
         Token {
             token_type,
             lexeme,
             row,
             col,
-            source: source.into(),
         }
     }
 
@@ -123,7 +124,7 @@ impl Token {
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut ret = format!("{:?}({:?})", self.token_type, self.lexeme);
-        if self.token_type == TokenType::Newline {
+        if self.token_type == TokenType::NewParagraph {
             ret.push_str("\n");
         } else {
             ret.push_str(" ");
@@ -131,7 +132,6 @@ impl Display for Token {
         write!(f, "{}", ret)
     }
 }
-
 
 /// This is the major function of this file.
 ///
@@ -160,13 +160,7 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
     while i < length {
         match chars[i] {
             '#' => {
-                ret.push(Token::new(
-                    TokenType::Hash,
-                    "#".into(),
-                    row,
-                    col,
-                    source_path,
-                ));
+                ret.push(Token::new(TokenType::Hash, "#".into(), row, col));
             }
             '$' => {
                 if i + 1 < length && chars[i + 1] == '$' {
@@ -175,7 +169,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         "$$".into(),
                         row,
                         col,
-                        source_path,
                     ));
                     i += 1; // Skip the next '$'
                 } else {
@@ -184,7 +177,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         "$".into(),
                         row,
                         col,
-                        source_path,
                     ));
                 }
             }
@@ -206,7 +198,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         chars[i + 1..=end_of_line].iter().collect(),
                         row,
                         col,
-                        source_path,
                     ));
                     i = end_of_line;
                 } else {
@@ -215,19 +206,12 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         chars[i + 1..end_of_line].iter().collect(),
                         row,
                         col,
-                        source_path,
                     ));
                     i = end_of_line - 1;
                 }
             }
             '^' => {
-                ret.push(Token::new(
-                    TokenType::Uptick,
-                    "^".into(),
-                    row,
-                    col,
-                    source_path,
-                ));
+                ret.push(Token::new(TokenType::Uptick, "^".into(), row, col));
             }
             '&' => {
                 ret.push(Token::new(
@@ -235,7 +219,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     "&".into(),
                     row,
                     col,
-                    source_path,
                 ));
             }
             '_' => {
@@ -244,7 +227,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     "_".into(),
                     row,
                     col,
-                    source_path,
                 ));
             }
             '{' => {
@@ -253,7 +235,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     "{".into(),
                     row,
                     col,
-                    source_path,
                 ));
             }
             '}' => {
@@ -262,7 +243,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     "}".into(),
                     row,
                     col,
-                    source_path,
                 ));
             }
             '\\' => {
@@ -272,7 +252,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         "\\".into(),
                         row,
                         col,
-                        source_path,
                     ));
                 } else if chars[i + 1] == '\\' {
                     ret.push(Token::new(
@@ -280,7 +259,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         String::new(),
                         row,
                         col,
-                        source_path,
                     ));
                     i += 1;
                 } else if chars[i + 1] == '#'
@@ -299,7 +277,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         chars[i + 1].into(),
                         row,
                         col,
-                        source_path,
                     ));
                     i += 1;
                 } else if chars[i + 1] == '\n' {
@@ -308,7 +285,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         "\\".into(),
                         row,
                         col,
-                        source_path,
                     ));
                     // note we do not increase i+1 here.
                 } else if chars[i + 1] == '[' {
@@ -317,7 +293,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         "\\[".into(),
                         row,
                         col,
-                        source_path,
                     ));
                     i += 1;
                 } else if chars[i + 1] == ']' {
@@ -326,7 +301,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         "\\]".into(),
                         row,
                         col,
-                        source_path,
                     ));
                     i += 1;
                 } else if chars[i + 1].is_alphabetic() {
@@ -339,18 +313,11 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                         chars[start..=i].iter().collect(),
                         row,
                         col,
-                        source_path,
                     ));
                 }
             }
             '~' => {
-                ret.push(Token::new(
-                    TokenType::Tilde,
-                    "~".into(),
-                    row,
-                    col,
-                    source_path,
-                ));
+                ret.push(Token::new(TokenType::Tilde, "~".into(), row, col));
             }
             '[' => {
                 ret.push(Token::new(
@@ -358,7 +325,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     "[".into(),
                     row,
                     col,
-                    source_path,
                 ));
             }
             ']' => {
@@ -367,7 +333,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     "]".into(),
                     row,
                     col,
-                    source_path,
                 ));
             }
             ' ' | '\t' => {
@@ -401,11 +366,10 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                 }
                 if newline_count >= 2 {
                     ret.push(Token::new(
-                        TokenType::Newline,
+                        TokenType::NewParagraph,
                         "\n".into(),
                         row,
                         0,
-                        source_path,
                     ));
                 }
             }
@@ -427,7 +391,6 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     chars[start..=i].iter().collect::<String>(),
                     row,
                     col,
-                    source_path,
                 ));
             }
         } // end of match
@@ -446,7 +409,7 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
 
 // this function is solely for convenience of testing
 pub fn scan_str(input: &str) -> Vec<Token> {
-    let file_input = FileInput::from_str("FromStr",input);
+    let file_input = FileInput::from_str("FromStr", input);
     scan(file_input).unwrap()
 }
 
@@ -801,7 +764,7 @@ Hello, World! $E=mc^2$
             (TokenType::Uptick, "^".into()),
             (TokenType::Word, "2".into()),
             (TokenType::Dollar, "$".into()),
-            (TokenType::Newline, "\n".into()),
+            (TokenType::NewParagraph, "\n".into()),
             (TokenType::Command, "end".into()),
             (TokenType::LeftCurlyBracket, "{".into()),
             (TokenType::Word, "document".into()),

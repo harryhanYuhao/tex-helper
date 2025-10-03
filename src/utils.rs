@@ -99,6 +99,10 @@ impl FileInput {
     pub fn get_file_path(&self) -> &PathBuf {
         &self.file_path
     }
+
+    pub fn dummy() -> Self {
+        FileInput::from_str("dummy/path", "")
+    }
 }
 
 #[cfg(test)]
