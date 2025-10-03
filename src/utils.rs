@@ -73,18 +73,26 @@ pub fn copy_dir_all(
 /// Struct for IO and error handling
 #[derive(Debug, Clone)]
 pub struct FileInput {
-    pub file_path: PathBuf,
-    pub content: String,
+    file_path: PathBuf,
+    content: String,
 }
 
 impl FileInput {
-    pub fn from_file_path(file_path: &str) -> Result<Self, Box<dyn Error>> {
-        let content = fs::read_to_string(&file_path)?;
+    pub fn from_str(file_path: &str, content: &str) -> Self {
+        FileInput {
+            file_path: PathBuf::from(file_path),
+            content: content.to_string(),
+        }
+    }
+
+    pub fn from_file_path(file_path: &PathBuf) -> Result<Self, Box<dyn Error>> {
+        // read_to_string panics when encountering invalide utf codes
+        let content = fs::read_to_string(file_path)?;
         let file_path = PathBuf::from(file_path);
         Ok(FileInput { file_path, content })
     }
 
-    pub fn get_content(&self) -> &str {
+    pub fn get_str_content(&self) -> &str {
         &self.content
     }
 

@@ -31,7 +31,7 @@
 //! BracketArg -> [Paragraph]
 
 use super::ast::{Node, NodePtr, NodeType};
-use super::scanner::{scan_str, Token, TokenType};
+use super::scanner::{Token, TokenType};
 use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, Mutex};

@@ -140,8 +140,9 @@ impl Display for Token {
 ///
 /// This function implements a naive regex algorithm.
 /// TODO: describe formally the algorithm, and the expected output
+/// PROBLEM: When will we have scan error?
 pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
-    let source = file_input.get_content();
+    let source = file_input.get_str_content();
     let source_path = file_input.get_file_path();
 
     let chars: Vec<char> = source.chars().collect();
@@ -443,11 +444,9 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
     Ok(ret)
 }
 
+// this function is solely for convenience of testing
 pub fn scan_str(input: &str) -> Vec<Token> {
-    let file_input = FileInput {
-        file_path: "FromStr".into(),
-        content: input.into(),
-    };
+    let file_input = FileInput::from_str("FromStr",input);
     scan(file_input).unwrap()
 }
 

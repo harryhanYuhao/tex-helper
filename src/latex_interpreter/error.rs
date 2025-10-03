@@ -31,7 +31,7 @@ pub fn create_error(token_error: &TokenError, input: &FileInput) -> String {
     let red_error = "ERROR".red().bold();
     let mut ret = format!("{file_path}:{row}:{col} {red_error}: {msg}\n");
 
-    let in_str = input.get_content();
+    let in_str = input.get_str_content();
     let lines: Vec<String> =
         in_str.split('\n').map(|s| s.to_string()).collect();
 

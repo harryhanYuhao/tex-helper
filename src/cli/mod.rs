@@ -1,4 +1,7 @@
+use std::path::PathBuf;
+
 mod compile;
+mod format;
 mod init;
 
 use clap::{Parser, Subcommand};
@@ -13,7 +16,7 @@ use simplelog::{
 #[command(propagate_version = true)]
 struct Cli {
     /// More detailed logs
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = false)]
     debug: bool,
 
     #[command(subcommand)]
@@ -34,8 +37,15 @@ enum Commands {
         ]
         doc_mode: String,
     },
-    // Compile the latex files
-    // Compile { targets: Vec<String> },
+    /// Format Latex
+    Format {
+        #[arg(short, long, default_value_t = String::from("."))]
+        target: String,
+
+        #[arg(short, long, default_value_t = false)]
+        in_place: bool,
+    }, // Compile the latex files
+       // Compile { targets: Vec<String> },
 }
 
 /// Init logger according to debug flag
@@ -69,13 +79,10 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             init::init_tex_project(package_name, doc_mod)?;
             info!("Initialized LaTeX package `{package_name}` with document mode `{doc_mod}`");
-        } // Commands::Compile { targets } => {
-          //     // TODO: implement compile
-          //     error!("Compiling is yet to be implemented.");
-          //     for i in targets {
-          //         compile::compile(i)?;
-          //     }
-          // }
+        }
+        Commands::Format { target, in_place } => {
+            format::format(&PathBuf::from(target));
+        }
     }
     Ok(())
 }
