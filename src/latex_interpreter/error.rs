@@ -1,4 +1,4 @@
-use super::scanner::Token;
+use super::token::Token;
 use colored::*;
 use std::fmt;
 

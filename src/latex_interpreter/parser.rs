@@ -31,12 +31,11 @@
 //! BracketArg -> [Paragraph]
 
 use std::error::Error;
-use std::fmt;
 use std::sync::{Arc, Mutex};
 
 use super::ast::{Node, NodePtr, NodeType};
 use super::error::TokenErrList;
-use super::scanner::{Token, TokenType};
+use super::token::{Token, TokenType};
 use crate::utils::FileInput;
 
 
@@ -599,6 +598,7 @@ fn parse_paragraph(
 mod test {
 
     use crate::latex_interpreter::*;
+    use crate::latex_interpreter::token::Token;
     use crate::utils::FileInput;
     #[test]
     fn string_content_recur() {
@@ -623,7 +623,7 @@ e=mc^2
 Hope there is success!
 \end{document}"##;
         let tokens = scanner::scan_str(input);
-        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        println!("Tokens:\n{}", Token::to_string_from_vec(&tokens));
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
@@ -633,7 +633,7 @@ Hope there is success!
     fn parser_slash_open_bracket() {
         let input = r##"\[e = mc^2\]"##;
         let tokens = scanner::scan_str(input);
-        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        println!("Tokens:\n{}", Token::to_string_from_vec(&tokens));
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
@@ -643,7 +643,7 @@ Hope there is success!
     fn parser_operator() {
         let input = r##"e^{aaa}"##;
         let tokens = scanner::scan_str(input);
-        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        println!("Tokens:\n{}", Token::to_string_from_vec(&tokens));
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
@@ -653,7 +653,7 @@ Hope there is success!
     fn parser_inline_math() {
         let input = r##"We have equation $e=mc^2$"##;
         let tokens = scanner::scan_str(input);
-        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        println!("Tokens:\n{}", Token::to_string_from_vec(&tokens));
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
@@ -663,7 +663,7 @@ Hope there is success!
     fn parser_display_math() {
         let input = r##"We have equation $$a = b$$"##;
         let tokens = scanner::scan_str(input);
-        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        println!("Tokens:\n{}", Token::to_string_from_vec(&tokens));
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
@@ -673,7 +673,7 @@ Hope there is success!
     fn parser_command() {
         let input = r##"\a{aaa}[abb]{asb}"##;
         let tokens = scanner::scan_str(input);
-        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        println!("Tokens:\n{}", Token::to_string_from_vec(&tokens));
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
@@ -689,7 +689,7 @@ e^{i p} + 1 = 0
 Another paragraph!
 "##;
         let tokens = scanner::scan_str(input);
-        println!("Tokens:\n{}", scanner::Token::to_string_from_vec(&tokens));
+        println!("Tokens:\n{}", Token::to_string_from_vec(&tokens));
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
