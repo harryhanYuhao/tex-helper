@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 pub type NodePtr = Arc<Mutex<Node>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeType {
     Passage,   // A passage consisists of many paragraphs
     Paragraph, // A paragraph consists of many Words, operations, etc
@@ -85,6 +85,25 @@ impl Node {
         node.lexeme.to_string()
     }
 
+    pub fn get_children_string_content_recur(&self) -> String {
+        let mut ret: String = String::new();
+        for i in self.children.iter() {
+            let tmp = i.lock().unwrap();
+            ret.push_str(&tmp.get_string_content_recur());
+        }
+        ret
+    }
+
+
+    /// Recursively append the lexemes of self and all its children
+    /// depth first
+    /// EG  for tree 
+    /// A("A")
+    /// ├── B("B")
+    /// │   ├── C("C")
+    /// │   └── D("D")
+    /// └── E("E")
+    /// the output is "ABCDE"
     pub fn get_string_content_recur(&self) -> String {
         let mut ret: String = String::new();
         ret.push_str(&self.lexeme);
@@ -99,15 +118,7 @@ impl Node {
 
     pub fn get_string_content_recur_nodeptr(node: NodePtr) -> String {
         let node = node.lock().unwrap();
-        let mut ret: String = String::new();
-        ret.push_str(&node.lexeme);
-
-        for i in node.children.iter() {
-            let tmp = i.lock().unwrap();
-            ret.push_str(&tmp.get_string_content_recur());
-        }
-
-        ret
+        node.get_string_content_recur()
     }
 
     pub fn dummy() -> Node {
@@ -118,8 +129,22 @@ impl Node {
         }
     }
 
+    pub fn get_node_type(&self) -> &NodeType {
+        &self.node_type
+    }
+    
+    pub fn get_node_type_nodeptr(node: NodePtr) -> NodeType {
+        let node = node.lock().unwrap();
+        node.get_node_type().clone()
+    }
+
     pub fn get_children(&self) -> &[NodePtr] {
         &self.children
+    }
+
+    pub fn get_children_nodeptr(node: NodePtr) -> Vec<NodePtr> {
+        let node = node.lock().unwrap();
+        node.get_children().to_vec()
     }
 
     pub fn get_nth_child(&self, id: usize) -> Option<NodePtr> {
@@ -155,6 +180,27 @@ impl Node {
         node.is_content()
     }
 
+}
+
+#[cfg(test)]
+mod test_node {
+    #[test]
+    /// We 
+    fn test_get_string_content_recur() {
+        use super::*;
+        let mut a = Node::new("A", NodeType::Paragraph);
+        let mut b = Node::new("B", NodeType::Paragraph);
+        let c = Node::new("C", NodeType::Paragraph);
+        let d = Node::new("D", NodeType::Paragraph);
+        let e = Node::new("E", NodeType::Paragraph);
+
+        b.attach(c.into());
+        b.attach(d.into());
+        a.attach(b.into());
+        a.attach(e.into());
+
+        assert_eq!(a.get_string_content_recur(), "ABCDE");
+    }
 }
 
 /// Expected to display ast node with tree format (like the output of bash tree)

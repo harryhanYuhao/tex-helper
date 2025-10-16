@@ -39,7 +39,6 @@ enum Commands {
     },
     /// Format Latex
     Format {
-        #[arg(short, long, default_value_t = String::from("."))]
         target: String,
 
         #[arg(short, long, default_value_t = false)]
@@ -81,7 +80,16 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
             info!("Initialized LaTeX package `{package_name}` with document mode `{doc_mod}`");
         }
         Commands::Format { target, in_place } => {
-            format::format(&PathBuf::from(target));
+            let mut path = PathBuf::from(".");
+            path.push(target);
+            if !path.exists() {
+                return Err(format!(
+                    "Target path `{}` does not exist",
+                    path.display()
+                )
+                .into());
+            }
+            format::format(&path)?;
         }
     }
     Ok(())
