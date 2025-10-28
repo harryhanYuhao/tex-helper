@@ -24,7 +24,6 @@
 
 use super::token::{Token, TokenType};
 use crate::utils::FileInput;
-use colored::*;
 use std::error::Error;
 
 /// This is the major function of this file.
@@ -249,7 +248,7 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                 // which are used in error reporting
                 encountered_newline = true;
 
-                // ignore empty characters (space, tab, newline) 
+                // ignore empty characters (space, tab, newline)
                 // In latex, any empty characters (space or tab) at the beginning of
                 // a line is ignored
                 while i + 1 < length

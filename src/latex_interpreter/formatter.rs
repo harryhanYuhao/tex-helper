@@ -183,7 +183,6 @@ pub fn format(ast: NodePtr) -> Result<String, Box<dyn Error>> {
     let mut res = FormatRes::empty();
 
     format_recur(ast, &mut state, &mut res)?;
-    println!("Formatted Result: {:?}", res);
 
     Ok(res.to_string())
 }
@@ -231,7 +230,6 @@ fn format_recur(
     Ok(())
 }
 
-
 /// Whenever encountering a NewParagraph token, a new paragraph node will be created
 /// A NewParagraph token is created when there is two or more consecutive newlines with only empty
 /// chars between them
@@ -242,7 +240,7 @@ fn format_recur(
 /// \maketitle
 /// \end{document}
 /// ```
-/// Parsed result 
+/// Parsed result
 ///Passage()
 ///└── Paragraph()
 ///    └── Envr(document)

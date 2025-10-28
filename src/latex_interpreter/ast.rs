@@ -85,8 +85,8 @@ impl Node {
         node.lexeme.to_string()
     }
 
-    // Get the string content of all children Recursively
-    // ignoring self's lexeme
+    /// Get the string content of all children Recursively
+    /// ignoring self's lexeme
     pub fn get_children_lexeme_recur(&self) -> String {
         let mut ret: String = String::new();
         for i in self.children.iter() {
@@ -96,15 +96,16 @@ impl Node {
         ret
     }
 
+    /// Get the string content of all children Recursively
+    /// ignoring self's lexeme
     pub fn get_children_string_lexeme_ptr(node: NodePtr) -> String {
         let node = node.lock().unwrap();
         node.get_children_lexeme_recur()
     }
 
-
     /// Recursively append the lexemes of self and all its children
     /// depth first
-    /// EG  for tree 
+    /// EG  for tree
     /// A("A")
     /// ├── B("B")
     /// │   ├── C("C")
@@ -139,7 +140,7 @@ impl Node {
     pub fn get_node_type(&self) -> &NodeType {
         &self.node_type
     }
-    
+
     pub fn get_node_type_nodeptr(node: NodePtr) -> NodeType {
         let node = node.lock().unwrap();
         node.get_node_type().clone()
@@ -180,19 +181,18 @@ impl Node {
 
     pub fn is_content(&self) -> bool {
         !self.is_container()
-    } 
+    }
 
     pub fn is_content_nodeptr(node: NodePtr) -> bool {
         let node = node.lock().unwrap();
         node.is_content()
     }
-
 }
 
 #[cfg(test)]
 mod test_node {
     #[test]
-    /// We 
+    /// We
     fn test_get_string_content_recur() {
         use super::*;
         let mut a = Node::new("A", NodeType::Paragraph);

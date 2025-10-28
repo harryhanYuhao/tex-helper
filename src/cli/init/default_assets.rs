@@ -1,7 +1,3 @@
-use crate::utils;
-use std::error::Error;
-use std::fs;
-
 fn article_header() -> String {
     String::from("\\documentclass{article}")
 }

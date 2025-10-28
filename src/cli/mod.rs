@@ -1,9 +1,11 @@
+use std::fs;
 use std::path::PathBuf;
 
 mod compile;
 mod format;
 mod init;
 
+use crate::utils;
 use clap::{Parser, Subcommand};
 
 use simplelog::{
@@ -28,6 +30,7 @@ enum Commands {
     /// Creating a new latex package with <PACKAG_NAME>
     Init {
         package_name: String,
+
         #[arg(
             long,
             require_equals = true,
@@ -43,6 +46,9 @@ enum Commands {
 
         #[arg(short, long, default_value_t = false)]
         in_place: bool,
+
+        #[arg(short, long, value_name = "outfile")]
+        outfile: Option<String>,
     }, // Compile the latex files
        // Compile { targets: Vec<String> },
 }
@@ -79,7 +85,11 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
             init::init_tex_project(package_name, doc_mod)?;
             info!("Initialized LaTeX package `{package_name}` with document mode `{doc_mod}`");
         }
-        Commands::Format { target, in_place } => {
+        Commands::Format {
+            target,
+            in_place,
+            outfile,
+        } => {
             let mut path = PathBuf::from(".");
             path.push(target);
             if !path.exists() {
@@ -89,7 +99,22 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .into());
             }
-            format::format(&path)?;
+            let res = format::format(&path)?;
+
+            // TODO: debug level output
+            if *in_place {
+                // Backup original file
+                fs::copy(target, &format!(".{}.backup", target))?;
+                utils::overwrite_to_file_path_buf(
+                    &PathBuf::from(target),
+                    &res,
+                )?;
+            }
+
+            // write to outfile
+            if let Some(out) = outfile {
+                utils::overwrite_to_file_path_buf(&PathBuf::from(out), &res)?;
+            }
         }
     }
     Ok(())
