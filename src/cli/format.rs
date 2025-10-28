@@ -20,9 +20,9 @@ pub fn format(file_path: &PathBuf) -> Result<(), Box<dyn Error>> {
         Err(e) => panic!("Parsing error: {}", e),
     };
 
+    let res = format_private(ast)?;
 
-    let res = format_private(ast);
-
+    // TODO: temporary measure
     let output_path = format!("{}.formatted.tex", file_path.display());
     fs::write(&output_path, res.to_string())?;
 

@@ -85,13 +85,20 @@ impl Node {
         node.lexeme.to_string()
     }
 
-    pub fn get_children_string_content_recur(&self) -> String {
+    // Get the string content of all children Recursively
+    // ignoring self's lexeme
+    pub fn get_children_lexeme_recur(&self) -> String {
         let mut ret: String = String::new();
         for i in self.children.iter() {
             let tmp = i.lock().unwrap();
-            ret.push_str(&tmp.get_string_content_recur());
+            ret.push_str(&tmp.get_lexeme_recur());
         }
         ret
+    }
+
+    pub fn get_children_string_lexeme_ptr(node: NodePtr) -> String {
+        let node = node.lock().unwrap();
+        node.get_children_lexeme_recur()
     }
 
 
@@ -104,21 +111,21 @@ impl Node {
     /// │   └── D("D")
     /// └── E("E")
     /// the output is "ABCDE"
-    pub fn get_string_content_recur(&self) -> String {
+    pub fn get_lexeme_recur(&self) -> String {
         let mut ret: String = String::new();
         ret.push_str(&self.lexeme);
 
         for i in self.children.iter() {
             let tmp = i.lock().unwrap();
-            ret.push_str(&tmp.get_string_content_recur());
+            ret.push_str(&tmp.get_lexeme_recur());
         }
 
         ret
     }
 
-    pub fn get_string_content_recur_nodeptr(node: NodePtr) -> String {
+    pub fn get_lexeme_recur_ptr(node: NodePtr) -> String {
         let node = node.lock().unwrap();
-        node.get_string_content_recur()
+        node.get_lexeme_recur()
     }
 
     pub fn dummy() -> Node {
@@ -199,7 +206,24 @@ mod test_node {
         a.attach(b.into());
         a.attach(e.into());
 
-        assert_eq!(a.get_string_content_recur(), "ABCDE");
+        assert_eq!(a.get_lexeme_recur(), "ABCDE");
+    }
+
+    #[test]
+    fn test_get_children_string_content_recur() {
+        use super::*;
+        let mut a = Node::new("A", NodeType::Paragraph);
+        let mut b = Node::new("B", NodeType::Paragraph);
+        let c = Node::new("C", NodeType::Paragraph);
+        let d = Node::new("D", NodeType::Paragraph);
+        let e = Node::new("E", NodeType::Paragraph);
+
+        b.attach(c.into());
+        b.attach(d.into());
+        a.attach(b.into());
+        a.attach(e.into());
+
+        assert_eq!(a.get_children_lexeme_recur(), "BCDE");
     }
 }
 

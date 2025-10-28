@@ -29,6 +29,9 @@
 //! CommandWithArg -> LoneCommand (BraceArg | BracketArg)+
 //! BraceArg -> {Paragraph}
 //! BracketArg -> [Paragraph]
+//!
+//!
+//! ERROR HANDLING:
 
 use std::error::Error;
 use std::sync::{Arc, Mutex};
@@ -37,7 +40,6 @@ use super::ast::{Node, NodePtr, NodeType};
 use super::error::TokenErrList;
 use super::token::{Token, TokenType};
 use crate::utils::FileInput;
-
 
 /// This is the main function of this file
 /// FileInput is soly for error handling
@@ -58,23 +60,27 @@ pub fn parse(
     }
 }
 
-pub fn parse_testing(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {
+fn parse_testing(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {
     parse(input, FileInput::dummy())
 }
 
-pub fn parse_passage(
+/// Recall this is a recursive descend parser
+fn parse_passage(
     input: &[Token],
     pos: &mut usize,
     errs: &mut TokenErrList,
 ) -> Result<NodePtr, Box<dyn Error>> {
-    let root_ptr = Node::empty_passage_ptr();
+    let root_ptr: NodePtr = Node::empty_passage_ptr();
 
     let mut root = root_ptr.lock().unwrap();
+
     let mut prev_pos = *pos; // For debug purpose
 
     while *pos < input.len() {
         let paragraph = parse_paragraph(input, pos, errs)?;
 
+        // If scanner hits two consecutive newlines with empty characters in between, it
+        // outputs a NewParagraph token
         if poke(input, *pos, TokenType::NewParagraph) {
             root.attach(paragraph);
             *pos += 1;
@@ -94,7 +100,7 @@ pub fn parse_passage(
 }
 
 /// Check if input\[pos\] == token_type_1, return Ok(true) if it is, Ok(false) if it is not
-pub fn poke(input: &[Token], pos: usize, token_type_1: TokenType) -> bool {
+fn poke(input: &[Token], pos: usize, token_type_1: TokenType) -> bool {
     if input.len() <= pos {
         return false;
     }
@@ -162,7 +168,6 @@ fn parse_square_bracket_arg(
 
     let tmp = parse_paragraph(input, pos, errs)?;
 
-    // TODO ERROR HANDLING
     if !poke(input, *pos, TokenType::RightSquareBracket) {
         errs.push(input[*pos].clone(), "Expected Right Square Bracket!");
     } else {
@@ -388,7 +393,10 @@ fn parse_math(
     let initial_pos = *pos;
 
     // Find the next end marker
-    while *pos < input.len() && !poke(input, *pos, end_marker.clone()) && !poke(input, *pos, TokenType::NewParagraph){
+    while *pos < input.len()
+        && !poke(input, *pos, end_marker.clone())
+        && !poke(input, *pos, TokenType::NewParagraph)
+    {
         *pos += 1;
     }
 
@@ -465,8 +473,7 @@ fn parse_envr(
     *pos += 1;
 
     let envr_arg = parse_curly_bracket_arg(input, pos, errs)?;
-    let envr_name: String =
-        Node::get_string_content_recur_nodeptr(envr_arg.clone());
+    let envr_name: String = Node::get_lexeme_recur_ptr(envr_arg.clone());
 
     let mut ret = Node::new(&envr_name, NodeType::Envr);
 
@@ -485,7 +492,7 @@ fn parse_envr(
 
     let envr_end_arg = parse_curly_bracket_arg(input, pos, errs)?;
     let envr_end_name: String =
-        Node::get_string_content_recur_nodeptr(envr_end_arg.clone());
+        Node::get_lexeme_recur_ptr(envr_end_arg.clone());
 
     if envr_end_name != envr_name {
         errs.push(
@@ -597,8 +604,8 @@ fn parse_paragraph(
 #[cfg(test)]
 mod test {
 
-    use crate::latex_interpreter::*;
     use crate::latex_interpreter::token::Token;
+    use crate::latex_interpreter::*;
     use crate::utils::FileInput;
     #[test]
     fn string_content_recur() {
@@ -607,7 +614,7 @@ mod test {
         let ast = parser::parse_testing(&tokens).unwrap();
         println!("{}", ast.lock().unwrap());
         let ast = ast.lock().unwrap();
-        assert_eq!(input, ast.get_string_content_recur());
+        assert_eq!(input, ast.get_lexeme_recur());
     }
 
     #[test]
@@ -716,12 +723,31 @@ Another paragraph!
 \author{aaa}
 \date{\today}
 \begin{document}
+
+
+
+
 \maketitle
 %\tableofcontents
 
 \end{document}
 "##;
         let tokens = scanner::scan_str(input);
+        let ast = parser::parse_testing(&tokens).unwrap();
+
+        println!("{}", ast.lock().unwrap());
+    }
+
+    #[test]
+    fn empty_doc(){
+        let input = r##"\begin{document}
+
+\maketitle
+\end{document}
+            "##;
+        let tokens = scanner::scan_str(input);
+        println!("Souce:\n{}", input);
+
         let ast = parser::parse_testing(&tokens).unwrap();
 
         println!("{}", ast.lock().unwrap());
@@ -738,8 +764,8 @@ Another paragraph!
 
         let file_input = FileInput::from_str("dummy/path", input);
 
-        match  parser::parse(&tokens, file_input){
-            Ok(_) => {},
+        match parser::parse(&tokens, file_input) {
+            Ok(_) => {}
             Err(e) => {
                 panic!("Error:\n{}", e);
             }

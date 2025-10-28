@@ -22,10 +22,10 @@
 //! 1. Commands are scanned into command tokens, the beginning backslash is not in the lexeme.
 //! 1. Escaped characters are into EscapedChar, the backslash is not in the lexeme.
 
+use super::token::{Token, TokenType};
 use crate::utils::FileInput;
 use colored::*;
 use std::error::Error;
-use super::token::{Token, TokenType};
 
 /// This is the major function of this file.
 ///
@@ -245,7 +245,13 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                 let mut newline_count = 1;
                 row += 1;
                 col = 0;
+                // encountered newline is used to update col and row vals of token,
+                // which are used in error reporting
                 encountered_newline = true;
+
+                // ignore empty characters (space, tab, newline) 
+                // In latex, any empty characters (space or tab) at the beginning of
+                // a line is ignored
                 while i + 1 < length
                     && (chars[i + 1] == ' '
                         || chars[i + 1] == '\t'
@@ -258,6 +264,8 @@ pub fn scan(file_input: FileInput) -> Result<Vec<Token>, Box<dyn Error>> {
                     }
                     i += 1;
                 }
+                // if there are more than two consecutive newlines (with only empty
+                // characters between), it is a new paragraph
                 if newline_count >= 2 {
                     ret.push(Token::new(
                         TokenType::NewParagraph,

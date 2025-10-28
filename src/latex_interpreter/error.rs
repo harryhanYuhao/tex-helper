@@ -38,6 +38,10 @@ impl fmt::Display for TokenErrList {
             input: &str,
             file_path: &str,
         ) -> String {
+            // the row and col stored in Token are 0-indexed
+            // when reading the file, however, the row and col are 1-indexed
+            // (i.e., the first row is row 1, the first col is col 1)
+            // The col number points to the first character of the lexeme
             let row = token.row + 1;
             let col = token.col + 1;
             let red_error = "ERROR".red().bold();
@@ -71,9 +75,17 @@ impl fmt::Display for TokenErrList {
             }
 
             ret.push_str(&format!("{}\n", lines[token.row]));
+            // show the indicator under the token pointing to the error
+            // if the token has multiple characters, indicater shall cover all
+            // characters
+            // We are trying to imitate the cargo style error message
             ret.push_str(&format!(
                 "{}{}\n",
                 " ".repeat(token.col),
+                // Some tokens have a shortened lexeme
+                // eg, Command(begin) has lexeme "begin", while in the source file it
+                // is "\begin"
+                // TODO: make sure the 
                 "^".repeat(token.lexeme.len()).red().bold()
             ));
             ret
@@ -107,29 +119,29 @@ impl TokenError {
     }
 }
 
-pub fn create_error(token_error: &TokenError, input: &FileInput) -> String {
-    let msg = &token_error.msg;
-    let file_path = input.get_file_path().display();
-
-    let token = &token_error.token;
-    let row = token.row + 1;
-    let col = token.col + 1;
-    let red_error = "ERROR".red().bold();
-    let mut ret = format!("{file_path}:{row}:{col} {red_error}: {msg}\n");
-
-    let in_str = input.get_str_content();
-    let lines: Vec<String> =
-        in_str.split('\n').map(|s| s.to_string()).collect();
-
-    ret.push_str(&format!("{}\n", lines[token.row]));
-    ret.push_str(&format!(
-        "{}{}\n",
-        " ".repeat(token.col),
-        "^".repeat(token.lexeme.len()).red().bold()
-    ));
-
-    ret
-}
+// pub fn create_error(token_error: &TokenError, input: &FileInput) -> String {
+//     let msg = &token_error.msg;
+//     let file_path = input.get_file_path().display();
+//
+//     let token = &token_error.token;
+//     let row = token.row + 1;
+//     let col = token.col + 1;
+//     let red_error = "ERROR".red().bold();
+//     let mut ret = format!("{file_path}:{row}:{col} {red_error}: {msg}\n");
+//
+//     let in_str = input.get_str_content();
+//     let lines: Vec<String> =
+//         in_str.split('\n').map(|s| s.to_string()).collect();
+//
+//     ret.push_str(&format!("{}\n", lines[token.row]));
+//     ret.push_str(&format!(
+//         "{}{}\n",
+//         " ".repeat(token.col),
+//         "^".repeat(token.lexeme.len()).red().bold()
+//     ));
+//
+//     ret
+// }
 
 #[cfg(test)]
 mod tests {

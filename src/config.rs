@@ -1,3 +1,4 @@
+//! This crate creates a config struct for configuration of the command line tool.
 use crate::utils;
 
 use crate::CONFIG;
