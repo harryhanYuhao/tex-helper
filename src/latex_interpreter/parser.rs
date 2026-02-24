@@ -5,12 +5,12 @@
 //! This is the parse grammar
 //! Note * denotes 0 or more, + denotes 1 or more
 //!
-//! Passage -> Passage Paragraph \n\n+ (two or more consective line breaks)
+//! Passage -> Passage Paragraph \n\n+ (two or more consecutive line breaks)
 //!
 //! Paragraph -> Paragraph E
 //!
 //! E -> Word
-//! E -> Commant
+//! E -> Command
 //! E -> LoneCommand   // Commands without args
 //! E -> SPACE* ( space are simple ignored)
 //!

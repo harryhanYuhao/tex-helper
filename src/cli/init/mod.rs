@@ -3,7 +3,7 @@
 
 mod default_assets;
 
-use crate::config;
+use crate::config::Config;
 use crate::utils;
 use std::fs;
 
@@ -41,6 +41,7 @@ fn create_file_in_project_dir(
 pub(super) fn init_tex_project(
     package_name: &str,
     doc_mode: &str,
+    config: &Config,
 ) -> Result<(), Box<dyn Error>> {
     create_new_dir(package_name)?;
 
@@ -55,7 +56,7 @@ pub(super) fn init_tex_project(
         &default_assets::reference_bib(),
     )?;
 
-    create_preamble_contents(package_name, doc_mode)?;
+    create_preamble_contents(package_name, doc_mode, config)?;
 
     Ok(())
 }
@@ -75,8 +76,9 @@ pub(super) fn init_tex_project(
 fn create_preamble_contents(
     package_name: &str,
     doc_mode: &str,
+    config: &Config,
 ) -> Result<(), Box<dyn Error>> {
-    let main_file_path = utils::get_main_file_path(package_name);
+    let main_file_path = utils::get_main_file_path(package_name, config);
 
     let custom_file_path = custom_template_exists(doc_mode)?;
 
@@ -105,7 +107,8 @@ fn create_main_with_defaults(
     package_name: &str,
     doc_mode: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let main_file_name = config::get_main_file_name();
+    // TODO: Complete with Config
+    let main_file_name = "main.tex";
 
     let ret = default_assets::default_preable(doc_mode);
     if ret.is_empty() {

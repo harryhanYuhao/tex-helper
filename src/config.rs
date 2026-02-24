@@ -1,19 +1,26 @@
 //! This crate creates a config struct for configuration of the command line tool.
 use crate::utils;
 
-use crate::CONFIG;
+#[derive(Debug)]
+pub enum DebugLevel{
+    None,
+    Info,
+    Full
+}
 
 #[derive(Debug)]
 pub struct Config {
     main_file_name: String,
     latex_binary: Option<String>,
+    debug: bool,
 }
 
 impl Config {
-    pub fn new() -> Self {
+    pub fn new(debug: bool) -> Self {
         Config {
             main_file_name: "main.tex".into(),
             latex_binary: None,
+            debug,
         }
     }
 
@@ -32,14 +39,10 @@ impl Config {
     pub fn get_latex_binary(&self) -> Option<String> {
         self.latex_binary.clone()
     }
+
+    pub fn is_debug(&self) -> bool {
+        self.debug
+    }
+
 }
 
-pub fn get_main_file_name() -> String {
-    let config = CONFIG.lock().unwrap();
-    config.get_main_file_name()
-}
-
-pub fn get_latex_binary() -> Option<String> {
-    let config = CONFIG.lock().unwrap();
-    config.get_latex_binary()
-}

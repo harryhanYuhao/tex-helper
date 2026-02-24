@@ -4,12 +4,10 @@ use std::error::Error;
 use std::fs;
 use std::process::Command;
 
-use crate::CONFIG;
 
 pub fn compile(main_file_path: &str) -> Result<(), Box<dyn Error>> {
-    let config = CONFIG.lock().unwrap();
 
-    let binding = config.get_latex_binary();
+    let binding: Option<String> = None;
     let binary = match &binding {
         Some(b) => b,
         None => {

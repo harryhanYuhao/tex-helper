@@ -1,3 +1,5 @@
+/// This file defines the behaviour of CLI. 
+/// As the whole program is a CLI executable, this is the actual "main" file
 use std::fs;
 use std::path::PathBuf;
 
@@ -6,6 +8,8 @@ mod format;
 mod init;
 
 use crate::utils;
+use crate::config;
+
 use clap::{Parser, Subcommand};
 
 use simplelog::{
@@ -70,10 +74,15 @@ fn init_logger(debug: bool) {
     .unwrap();
 }
 
+/// CLI entry function
 pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    init_logger(cli.debug);
+    let mut config = config::Config::new(cli.debug);
+    config.init();
+
+    init_logger(cli.debug); // cli.debug is entered by the user flags.  
+                            // This is a feature of clap crate.
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
@@ -82,7 +91,7 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
             doc_mode: doc_mod,
             package_name,
         } => {
-            init::init_tex_project(package_name, doc_mod)?;
+            init::init_tex_project(package_name, doc_mod, &config)?;
             info!("Initialized LaTeX package `{package_name}` with document mode `{doc_mod}`");
         }
         Commands::Format {
@@ -99,12 +108,13 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .into());
             }
-            let res = format::format(&path)?;
+            let res = format::format(&path, &config)?;
 
             // TODO: debug level output
             if *in_place {
                 // Backup original file
                 fs::copy(target, &format!(".{}.backup", target))?;
+                info!("Backed up original file to `.{}.backup`", target);
                 utils::overwrite_to_file_path_buf(
                     &PathBuf::from(target),
                     &res,

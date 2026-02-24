@@ -1,4 +1,4 @@
-use crate::config;
+use crate::config::Config;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
@@ -46,8 +46,8 @@ pub(crate) fn get_config_dir() -> Result<String, Box<dyn Error>> {
     Ok(format!("{}/.config/tex-helper", home_dir))
 }
 
-pub(crate) fn get_main_file_path(package_name: &str) -> PathBuf {
-    let main_file_name = config::get_main_file_name();
+pub(crate) fn get_main_file_path(package_name: &str, config: &Config) -> PathBuf {
+    let main_file_name = config.get_main_file_name();
     PathBuf::from(package_name).join(main_file_name)
 }
 
