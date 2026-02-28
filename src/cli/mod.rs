@@ -20,17 +20,17 @@ use simplelog::{
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)] // read from cargo.toml
 #[command(propagate_version = true)]
-struct Cli {
-    /// More detailed logs
+pub(crate) struct Cli {
+    /// Show AST tree for development debugging
     #[arg(short, long, default_value_t = false)]
-    debug: bool,
+    pub(crate) debug: bool,
 
     #[command(subcommand)]
-    command: Commands,
+    pub(crate) command: Commands,
 }
 
 #[derive(Debug, Subcommand)]
-enum Commands {
+pub enum Commands {
     /// Creating a new latex package with <PACKAG_NAME>
     Init {
         package_name: String,
@@ -78,12 +78,12 @@ fn init_logger(debug: bool) {
 pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    let mut config = config::Config::new(cli.debug);
-    config.init();
-
-    init_logger(cli.debug); // cli.debug is entered by the user flags.  
+    let config = config::Config::init(&cli);
+    init_logger(config.debug()); // cli.debug is entered by the user flags.  
                             // This is a feature of clap crate.
 
+
+    debug!("Config: {:?}", config);
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {

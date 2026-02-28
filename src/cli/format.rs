@@ -19,7 +19,7 @@ pub fn format(file_path: &PathBuf, config: &Config) -> Result<String, Box<dyn Er
         Ok(res) => res,
         Err(e) => panic!("Internal parsing error: {}", e),
     };
-    if config.is_debug(){
+    if config.debug(){
         debug!("AST: {}", ast.lock().unwrap());
     }
 
