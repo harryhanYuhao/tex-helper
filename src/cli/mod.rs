@@ -1,4 +1,4 @@
-/// This file defines the behaviour of CLI. 
+/// This file defines the behaviour of CLI.
 /// As the whole program is a CLI executable, this is the actual "main" file
 use std::fs;
 use std::path::PathBuf;
@@ -7,8 +7,8 @@ mod compile;
 mod format;
 mod init;
 
-use crate::utils;
 use crate::config;
+use crate::utils;
 
 use clap::{Parser, Subcommand};
 
@@ -79,9 +79,8 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let config = config::Config::init(&cli);
-    init_logger(config.debug()); // cli.debug is entered by the user flags.  
-                            // This is a feature of clap crate.
-
+    init_logger(config.debug()); // cli.debug is entered by the user flags.
+                                 // This is a feature of clap crate.
 
     debug!("Config: {:?}", config);
     // You can check for the existence of subcommands, and if found use their

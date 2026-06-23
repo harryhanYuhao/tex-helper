@@ -3,8 +3,6 @@ extern crate simplelog;
 #[macro_use]
 extern crate log;
 
-use std::sync::{Arc, Mutex};
-
 mod cli;
 mod config;
 mod latex_interpreter;

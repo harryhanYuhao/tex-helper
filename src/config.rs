@@ -1,21 +1,23 @@
 //! This crate creates a config struct for configuration of the command line tool.
- 
+
 use std::error::Error;
 use toml;
 
-use crate::utils;
 use crate::cli::Cli;
+use crate::utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
-pub enum DebugLevel{
-    None,
-    Info,
-    Full
+pub enum DebugLevel {
+    Off,
+    Error,
+    Warn,
+    Debug,
+    Trace,
 }
 
-// This struct is passed to configure the behaviour of this crate 
-// This config can be read from a toml config file. 
+// This struct is passed to configure the behaviour of this crate
+// This config can be read from a toml config file.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     main_file_name: Option<String>,
@@ -32,9 +34,8 @@ impl Config {
         }
     }
 
-
     /// Read config file, etc
-    pub fn init(cli: &Cli) -> Self{
+    pub fn init(cli: &Cli) -> Self {
         let mut config = Self::get_config_from_file().unwrap_or_else(|e| {
             warn!("Failed to read config file: {}", e);
             Self::default()
@@ -51,30 +52,34 @@ impl Config {
     }
 
     pub fn get_main_file_name(&self) -> String {
-        self.main_file_name.clone().unwrap_or(Self::default().main_file_name.unwrap())
+        self.main_file_name
+            .clone()
+            .unwrap_or(Self::default().main_file_name.unwrap())
     }
 
     pub fn get_latex_binary(&self) -> Option<String> {
         self.latex_binary.clone()
     }
 
-    pub fn debug(&self) -> bool {
+    pub fn get_debug_level(&self) -> bool {
         self.debug.clone().unwrap_or(Self::default().debug.unwrap())
     }
 
-    fn get_config_from_file() -> Result<Self, Box<dyn Error>>{
-        use std::fs;
+    fn get_config_from_file() -> Result<Self, Box<dyn Error>> {
         use std::env;
+        use std::fs;
         let home_dir: String = env::var("HOME")?;
-        let config_str = match fs::read_to_string(home_dir + "/.config/tex-helper/config.toml"){
+        let config_str = match fs::read_to_string(
+            home_dir + "/.config/tex-helper/config.toml",
+        ) {
             Ok(s) => {
                 debug!("Config file read successfully");
                 s
-            },
+            }
             Err(e) => {
                 // warn!("Failed to read config file: {}", e);
-                // return default config for now. 
-                // TODO: Better error handling 
+                // return default config for now.
+                // TODO: Better error handling
                 return Ok(Self::default());
             }
         };
@@ -82,4 +87,3 @@ impl Config {
         Ok(config)
     }
 }
-

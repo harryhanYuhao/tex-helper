@@ -739,7 +739,7 @@ Another paragraph!
     }
 
     #[test]
-    fn empty_doc(){
+    fn empty_doc() {
         let input = r##"\begin{document}
 
 \maketitle
