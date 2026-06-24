@@ -11,7 +11,6 @@ use crate::config;
 use crate::utils;
 
 use clap::{Parser, Subcommand};
-
 use simplelog::{
     ColorChoice, CombinedLogger, Config as LogConfig, LevelFilter, TermLogger,
     TerminalMode,
@@ -79,8 +78,8 @@ pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let config = config::Config::init(&cli);
-    init_logger(config.debug()); // cli.debug is entered by the user flags.
-                                 // This is a feature of clap crate.
+    init_logger(config.get_debug_level()); // cli.debug is entered by the user flags.
+                                           // This is a feature of clap crate.
 
     debug!("Config: {:?}", config);
     // You can check for the existence of subcommands, and if found use their

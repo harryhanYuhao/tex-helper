@@ -1,4 +1,4 @@
-//! This crate creates a config struct for configuration of the command line tool.
+//! Config struct for configuration
 
 use std::error::Error;
 use toml;
@@ -7,6 +7,7 @@ use crate::cli::Cli;
 use crate::utils;
 use serde::{Deserialize, Serialize};
 
+/// The debug level, which is the same as simplelog::LevelFilter
 #[derive(Debug)]
 pub enum DebugLevel {
     Off,

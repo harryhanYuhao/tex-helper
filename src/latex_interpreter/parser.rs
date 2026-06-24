@@ -60,11 +60,12 @@ pub fn parse(
     }
 }
 
+// Only for testing
 fn parse_testing(input: &[Token]) -> Result<NodePtr, Box<dyn Error>> {
     parse(input, FileInput::dummy())
 }
 
-/// Recall this is a recursive descend parser
+/// This is a recursive descend parser
 fn parse_passage(
     input: &[Token],
     pos: &mut usize,
