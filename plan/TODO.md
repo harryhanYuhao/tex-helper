@@ -11,7 +11,7 @@ It may be helpful to use parser generators:
 At the moment all Node are `Ast<Mutex>`, which is the measure for parallelism. 
 This seems a overkill.
 
-The node can just be a `Box<Node>`, while paragraph are stored as `Arc<RwLock<Vec<Node>>>`, as we only need parallelism in the paragraph level.
+The node can just be a `Box<Node>`, while paragraph are stored as `Arc<RwLock<Vec<Node>>`, as we only need parallelism in the paragraph level.
 
 ## Compatibilities 
 

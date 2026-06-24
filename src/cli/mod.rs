@@ -20,9 +20,10 @@ use simplelog::{
 #[command(version, about, long_about = None)] // read from cargo.toml
 #[command(propagate_version = true)]
 pub(crate) struct Cli {
-    /// Show AST tree for development debugging
-    #[arg(short, long, default_value_t = false)]
-    pub(crate) debug: bool,
+    /// An integer to specify the debug level.
+    /// 0 -> off; 1 -> Error; 2 -> Warning; 3 -> Debug; 4 -> trace. Default is 2
+    #[arg(short, long)]
+    pub(crate) debug: Option<u8>,
 
     #[command(subcommand)]
     pub(crate) command: Commands,
@@ -57,11 +58,15 @@ pub enum Commands {
 }
 
 /// Init logger according to debug flag
-fn init_logger(debug: bool) {
-    let log_filter = if debug {
-        LevelFilter::Trace
-    } else {
-        LevelFilter::Info
+// recall the hierarchy of debug level Trace < Debug < Warn <Error
+// When set to debug level A, only message of those higher than A are logged
+fn init_logger(debug: config::DebugLevel) {
+    let log_filter: LevelFilter = match debug {
+        config::DebugLevel::Debug => LevelFilter::Debug,
+        config::DebugLevel::Trace => LevelFilter::Trace,
+        config::DebugLevel::Warn => LevelFilter::Warn,
+        config::DebugLevel::Error => LevelFilter::Error,
+        config::DebugLevel::Off => LevelFilter::Off,
     };
 
     CombinedLogger::init(vec![TermLogger::new(
@@ -77,11 +82,15 @@ fn init_logger(debug: bool) {
 pub fn cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
+    // The logs dufing config.init will not be registered as it is called before init_logger
     let config = config::Config::init(&cli);
     init_logger(config.get_debug_level()); // cli.debug is entered by the user flags.
-                                           // This is a feature of clap crate.
+
+    // flash the log now after init_logger
+    config.flush_log();
 
     debug!("Config: {:?}", config);
+
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {

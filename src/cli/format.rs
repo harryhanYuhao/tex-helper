@@ -22,9 +22,8 @@ pub fn format(
         Ok(res) => res,
         Err(e) => panic!("Internal parsing error: {}", e),
     };
-    if config.get_debug_level() {
-        debug!("AST: {}", ast.lock().unwrap());
-    }
+
+    debug!("AST: {}", ast.lock().unwrap());
 
     let res: String = format_private(ast, config)?;
 

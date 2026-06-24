@@ -1,4 +1,5 @@
 //! Process the latex tokens, which are
+//!
 
 use std::fmt::{self, Display, Formatter};
 
